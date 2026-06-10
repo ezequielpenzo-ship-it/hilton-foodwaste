@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Waste Manager · Hilton</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <!-- Firebase SDK (compat v10) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        /* ══════════════════════════════════════════
+           HILTON BRAND PALETTE
+           Primary:   #002F61  Hilton Blue
+                      #F0E9E6  Off-White
+                      #000000  Black
+                      #FFFFFF  White
+           Secondary: #686B8C  Blue Tint
+                      #799CB6  Turquoise Tint
+                      #8FB3A7  Teal Tint
+                      #007293  Turquoise
+                      #06937E  Teal
+                      #001137  Blue Shade
+                      #005670  Turquoise Shade
+                      #00614F  Teal Shade
+        ══════════════════════════════════════════ */
+        :root {
+            --hilton-blue:        #002F61;
+            --hilton-blue-shade:  #001137;
+            --hilton-blue-tint:   #686B8C;
+            --hilton-offwhite:    #F0E9E6;
+            --hilton-turquoise:   #007293;
+            --hilton-turq-tint:   #799CB6;
+            --hilton-turq-shade:  #005670;
+            --hilton-teal:        #06937E;
+            --hilton-teal-tint:   #8FB3A7;
+            --hilton-teal-shade:  #00614F;
+            --white:              #FFFFFF;
+            --black:              #000000;
+
+            --primary:     var(--hilton-blue);
+            --bg:          var(--hilton-offwhite);
+            --border:      #D9D2CC;
+            --text:        #000000;
+            --text-light:  #4a5568;
+            --shadow:      0 2px 10px rgba(0,47,97,0.10);
+            --radius:      4px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        body.app-mode {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        /* ─────────────────────────────────────────
+           SPLASH SCREEN
+        ───────────────────────────────────────── */
+        #splash {
+            min-height: 100vh;
+            background: var(--hilton-blue);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+        }
+        #splash.hidden { display: none; }
+
+        .splash-logo {
+            margin-bottom: 48px;
+            text-align: center;
+        }
+        /* Hilton wordmark SVG */
+        .hilton-wordmark {
+            width: 200px;
+            margin-bottom: 12px;
+        }
+        .splash-subtitle {
+            font-size: 12px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.6);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .splash-app-title {
+            color: rgba(255,255,255,0.85);
+            font-size: 14px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin-bottom: 56px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            width: 320px;
+            text-align: center;
+        }
+
+        .splash-label {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 20px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .splash-cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .splash-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 6px;
+            padding: 32px 36px;
+            width: 200px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.22s;
+            color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .splash-card:hover {
+            background: rgba(255,255,255,0.14);
+            border-color: rgba(255,255,255,0.45);
+            transform: translateY(-2px);
+        }
+        .splash-card-icon { font-size: 36px; margin-bottom: 14px; }
+        .splash-card-name {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .splash-card-desc { font-size: 11px; opacity: 0.55; line-height: 1.5; }
+
+        .splash-footer {
+            margin-top: 56px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.3);
+            letter-spacing: 1px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        /* ─────────────────────────────────────────
+           APP SHELL
+        ───────────────────────────────────────── */
+        #app { display: none; flex-direction: column; min-height: 100vh; }
+        #app.visible { display: flex; }
+
+        /* ─── HEADER ─── */
+        header {
+            background: var(--hilton-blue);
+            color: white;
+            padding: 0 28px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-logo-wrap {
+            height: 34px;
+            display: flex; align-items: center;
+            cursor: pointer;
+        }
+        .header-logo-wrap img { height: 34px; width: auto; }
+        .header-logo-text {
+            font-family: 'Georgia', serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: white;
+            text-transform: uppercase;
+        }
+        .header-divider {
+            width: 1px; height: 28px;
+            background: rgba(255,255,255,0.25);
+        }
+        .header-app-name {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            opacity: 0.75;
+        }
+        .header-right { display: flex; align-items: center; gap: 14px; }
+        .header-month {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 12px;
+            opacity: 0.7;
+            letter-spacing: 0.5px;
+        }
+        .header-mode-btn {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 11px;
+            padding: 5px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 3px;
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.18s;
+        }
+        .header-mode-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        /* ─── NAV ─── */
+        nav {
+            background: var(--white);
+            border-bottom: 2px solid var(--hilton-blue);
+            display: flex; overflow-x: auto;
+            position: sticky; top: 60px; z-index: 99;
+        }
+        nav::-webkit-scrollbar { display: none; }
+        .nav-tab {
+            padding: 14px 24px;
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--text-light);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            white-space: nowrap;
+            transition: all 0.18s;
+            user-select: none;
+        }
+        .nav-tab:hover { color: var(--hilton-blue); background: var(--bg); }
+        .nav-tab.active {
+            color: var(--hilton-blue);
+            border-bottom-color: var(--hilton-turquoise);
+            background: var(--bg);
+        }
+
+        /* ─── MAIN ─── */
+        main {
+            flex: 1;
+            max-width: 1200px; margin: 0 auto;
+            padding: 28px 20px 60px;
+            width: 100%;
+        }
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* ─── CARDS ─── */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .card + .card { margin-top: 16px; }
+        .card-title {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.8px;
+            color: var(--hilton-blue-tint); margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--bg);
+        }
+
+        /* ─── KPI GRID ─── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 20px;
+        }
+        .kpi-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--hilton-blue);
+        }
+        .kpi-label {
+            font-size: 9px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--text-light); margin-bottom: 8px;
+        }
+        .kpi-value { font-size: 32px; font-weight: 300; color: var(--hilton-blue); line-height: 1; }
+        .kpi-unit { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+        .kpi-badge {
+            display: inline-block; margin-top: 8px;
+            font-size: 10px; padding: 2px 8px; border-radius: 2px;
+            letter-spacing: 0.3px;
+        }
+        .badge-up   { background: #fde8e8; color: #8b0000; }
+        .badge-down { background: #e6f4f0; color: var(--hilton-teal-shade); }
+        .badge-info { background: #e8edf5; color: var(--hilton-blue); }
+
+        /* ─── CHARTS ─── */
+        .charts-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; margin-bottom: 20px;
+        }
+        @media (max-width: 760px) { .charts-grid { grid-template-columns: 1fr; } }
+        .chart-wrap { position: relative; height: 260px; }
+
+        /* ─── MONTH NAV ─── */
+        .month-nav {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 22px;
+        }
+        .mnav-btn {
+            width: 30px; height: 30px;
+            background: var(--white); border: 1px solid var(--border);
+            border-radius: var(--radius); cursor: pointer; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s; color: var(--hilton-blue);
+        }
+        .mnav-btn:hover { background: var(--hilton-blue); color: white; border-color: var(--hilton-blue); }
+        .mnav-label {
+            font-size: 15px; font-weight: 600;
+            color: var(--hilton-blue); min-width: 180px; text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        /* ─── FORM ─── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px; margin-bottom: 20px;
+        }
+        .fg { display: flex; flex-direction: column; gap: 6px; }
+        .fg label {
+            font-size: 10px; font-weight: 700; color: var(--hilton-blue);
+            text-transform: uppercase; letter-spacing: 1.2px;
+        }
+        .fg input, .fg select {
+            padding: 9px 13px;
+            border: 1px solid var(--border); border-radius: var(--radius);
+            font-size: 14px; color: var(--text); background: var(--bg);
+            outline: none; transition: border-color 0.18s;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .fg input:focus, .fg select:focus {
+            border-color: var(--hilton-blue); background: var(--white);
+        }
+        .fg-hidden { display: none; }
+
+        /* ─── BUTTONS ─── */
+        .btn {
+            padding: 10px 24px; border: none; border-radius: var(--radius);
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            letter-spacing: 1px; text-transform: uppercase;
+            transition: all 0.18s;
+        }
+        .btn-primary { background: var(--hilton-blue); color: white; }
+        .btn-primary:hover { background: var(--hilton-blue-shade); }
+        .btn-secondary {
+            background: transparent; color: var(--hilton-blue);
+            border: 1px solid var(--hilton-blue);
+        }
+        .btn-secondary:hover { background: var(--hilton-blue); color: white; }
+        .btn-turq { background: var(--hilton-turquoise); color: white; }
+        .btn-turq:hover { background: var(--hilton-turq-shade); }
+        .btn-sm { padding: 6px 14px; font-size: 10px; }
+        .btn-del {
+            background: transparent; color: #8b0000;
+            border: 1px solid #dcc5c5; padding: 4px 10px;
+            font-size: 11px; border-radius: var(--radius);
+            text-transform: none; letter-spacing: 0;
+        }
+        .btn-del:hover { background: #8b0000; color: white; border-color: #8b0000; }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+        /* ─── MESSAGES ─── */
+        .form-msg {
+            padding: 10px 16px; border-radius: var(--radius);
+            font-size: 12px; margin-bottom: 16px; display: none;
+            letter-spacing: 0.3px;
+        }
+        .msg-ok  { background: #e6f4f0; color: var(--hilton-teal-shade); border-left: 3px solid var(--hilton-teal); }
+        .msg-err { background: #fde8e8; color: #8b0000; border-left: 3px solid #c0392b; }
+
+        /* ─── TOAST ─── */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--hilton-blue); color: white;
+            padding: 12px 20px; border-radius: var(--radius);
+            font-size: 13px; letter-spacing: 0.3px;
+            box-shadow: 0 8px 30px rgba(0,47,97,0.35);
+            transform: translateY(60px); opacity: 0;
+            transition: all 0.26s; z-index: 9999; max-width: 300px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        /* ─── TABLES ─── */
+        .tbl-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            background: var(--hilton-blue); color: white;
+            padding: 10px 16px; text-align: left;
+            font-size: 9px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+        }
+        th:first-child { border-radius: 0; }
+        td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: #f5f0ec; }
+        tfoot td { font-weight: 700; background: var(--bg); color: var(--hilton-blue); }
+
+        /* ─── SECTOR BADGES ─── */
+        .s-badge {
+            display: inline-block; padding: 3px 10px;
+            border-radius: 2px; font-size: 10px; font-weight: 700;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .s0 { background: #e6f2f6; color: var(--hilton-turq-shade); }
+        .s1 { background: #e8edf5; color: var(--hilton-blue); }
+        .s2 { background: #e6f4f0; color: var(--hilton-teal-shade); }
+        .s3 { background: #ecedf3; color: var(--hilton-blue-tint); }
+        .s4 { background: #e6eef2; color: var(--hilton-turquoise); }
+
+        /* ─── FILTERS ─── */
+        .filter-row {
+            display: flex; gap: 10px; flex-wrap: wrap;
+            align-items: center; margin-bottom: 18px;
+        }
+        .filter-row input, .filter-row select {
+            padding: 8px 12px; border: 1px solid var(--border);
+            border-radius: var(--radius); font-size: 12px;
+            background: var(--white); outline: none;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        /* ─── COMENSALES ─── */
+        .com-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 14px;
+        }
+        .com-card {
+            background: var(--bg); border-radius: var(--radius);
+            padding: 18px; border: 1px solid var(--border);
+        }
+        .com-card-title {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1.2px; color: var(--hilton-blue);
+            margin-bottom: 14px; padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .com-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .com-row:last-child { margin-bottom: 0; }
+        .com-row label { font-size: 12px; color: var(--text-light); flex: 1; }
+        .com-row input {
+            width: 95px; padding: 6px 10px;
+            border: 1px solid var(--border); border-radius: var(--radius);
+            font-size: 13px; text-align: right;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        /* ─── BAR IN TABLE ─── */
+        .bar-cell { display: flex; align-items: center; gap: 8px; }
+        .bar-bg { flex: 1; background: #ddd8d2; border-radius: 2px; height: 6px; overflow: hidden; }
+        .bar-fill { height: 6px; border-radius: 2px; }
+        .bar-pct { font-size: 11px; color: var(--text-light); width: 38px; text-align: right; }
+
+        /* ─── EMPTY ─── */
+        .empty { text-align: center; padding: 44px 20px; color: var(--text-light); }
+        .empty-icon { font-size: 40px; margin-bottom: 12px; }
+        .empty p { font-size: 13px; }
+
+        /* ─── HOME SCREEN ─── */
+        .home-hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            align-items: center;
+            min-height: calc(100vh - 130px);
+            padding: 20px 0;
+        }
+        @media (max-width: 760px) {
+            .home-hero {
+                grid-template-columns: 1fr;
+                min-height: auto;
+                padding: 10px 0;
+            }
+            .home-illustration { order: -1; }
+        }
+        .home-illustration {
+            display: flex; align-items: center; justify-content: center;
+        }
+        .hero-svg {
+            width: 100%; max-width: 460px;
+            filter: drop-shadow(0 8px 24px rgba(0,47,97,0.12));
+        }
+        .home-content { padding: 10px 0; }
+        .home-tag {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2.5px;
+            color: var(--hilton-turquoise); margin-bottom: 16px;
+        }
+        .home-title {
+            font-family: 'Georgia', serif;
+            font-size: 42px; font-weight: 700;
+            color: var(--hilton-blue); line-height: 1.15;
+            margin-bottom: 18px;
+        }
+        @media (max-width: 760px) { .home-title { font-size: 30px; } }
+        .home-desc {
+            font-size: 14px; color: var(--text-light);
+            line-height: 1.7; margin-bottom: 28px;
+            max-width: 380px;
+        }
+        .home-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+        .home-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .hstat {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            box-shadow: var(--shadow);
+        }
+        .hstat-val {
+            font-size: 22px; font-weight: 300;
+            color: var(--hilton-blue); line-height: 1;
+        }
+        .hstat-lbl {
+            font-size: 9px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text-light); margin-top: 4px;
+        }
+
+        /* ─── MOBILE ADJUSTMENTS ─── */
+        body.mobile-mode .kpi-value { font-size: 26px; }
+        body.mobile-mode .form-grid { grid-template-columns: 1fr; }
+        body.mobile-mode main { padding: 14px 12px 50px; }
+        body.mobile-mode .charts-grid { grid-template-columns: 1fr; }
+        body.mobile-mode header { padding: 0 16px; }
+        body.mobile-mode .header-app-name,
+        body.mobile-mode .header-divider { display: none; }
+        body.mobile-mode .nav-tab { padding: 13px 16px; font-size: 11px; }
+
+        @media (max-width: 600px) {
+            header { padding: 0 14px; }
+            main { padding: 14px 10px 48px; }
+            .header-app-name, .header-divider { display: none; }
+            .kpi-value { font-size: 26px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     SPLASH SCREEN
+══════════════════════════════════════════════ -->
+<div id="splash">
+    <div class="splash-logo">
+        <div id="splashLogoArea">
+            <svg class="hilton-wordmark" viewBox="0 0 280 90" xmlns="http://www.w3.org/2000/svg" style="width:240px;">
+                <!-- Hilton serif wordmark -->
+                <text x="140" y="58" text-anchor="middle"
+                      font-family="Georgia, 'Times New Roman', serif"
+                      font-size="62" font-weight="700"
+                      fill="white" letter-spacing="-1">Hilton</text>
+                <!-- ® symbol -->
+                <text x="236" y="22" text-anchor="middle"
+                      font-family="Georgia, serif" font-size="14"
+                      fill="white">®</text>
+                <!-- PILAR subtitle -->
+                <text x="140" y="80" text-anchor="middle"
+                      font-family="'Segoe UI', Arial, sans-serif"
+                      font-size="13" font-weight="600"
+                      fill="white" letter-spacing="6">PILAR</text>
+            </svg>
+        </div>
+        <div class="splash-subtitle">Hotels &amp; Resorts</div>
+    </div>
+
+    <div class="splash-app-title">Food Waste Management</div>
+
+    <div class="splash-label">Seleccionar modo de visualización</div>
+
+    <div class="splash-cards">
+        <div class="splash-card" onclick="APP.launch('desktop')">
+            <div class="splash-card-icon">🖥️</div>
+            <div class="splash-card-name">Escritorio</div>
+            <div class="splash-card-desc">Dashboard completo con gráficos y tablas</div>
+        </div>
+        <div class="splash-card" onclick="APP.launch('mobile')">
+            <div class="splash-card-icon">📱</div>
+            <div class="splash-card-name">Móvil</div>
+            <div class="splash-card-desc">Interfaz compacta optimizada para táctil</div>
+        </div>
+    </div>
+
+    <div class="splash-footer">© Hilton · Food Waste Manager v1.0</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     APP
+══════════════════════════════════════════════ -->
+<div id="app">
+
+    <header>
+        <div class="header-left">
+            <div class="header-logo-wrap" onclick="APP.goSplash()" title="Volver al inicio">
+                <svg viewBox="0 0 200 46" xmlns="http://www.w3.org/2000/svg" style="height:38px;width:auto;">
+                    <text x="0" y="34" font-family="Georgia,'Times New Roman',serif"
+                          font-size="40" font-weight="700" fill="white" letter-spacing="-0.5">Hilton</text>
+                    <text x="163" y="12" font-family="Georgia,serif" font-size="11" fill="white">®</text>
+                    <text x="100" y="45" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif"
+                          font-size="10" font-weight="700" fill="rgba(255,255,255,0.75)" letter-spacing="4">PILAR</text>
+                </svg>
+            </div>
+            <div class="header-divider"></div>
+            <span class="header-app-name">Food Waste Manager</span>
+        </div>
+        <div class="header-right">
+            <span class="header-month" id="headerMonth"></span>
+            <button class="header-mode-btn" onclick="APP.toggleMode()">⇄ Cambiar modo</button>
+        </div>
+    </header>
+
+    <nav>
+        <div class="nav-tab" data-view="registro">➕ Registrar</div>
+        <div class="nav-tab" data-view="historial">📋 Historial</div>
+        <div class="nav-tab" data-view="comensales">👥 Comensales</div>
+        <div class="nav-tab" data-view="dashboard">📊 Dashboard</div>
+    </nav>
+
+    <main>
+
+        <!-- ── HOME ── -->
+        <div class="view active" id="view-home">
+            <div class="home-hero">
+                <div class="home-illustration">
+                    <!-- Food Waste SVG Illustration -->
+                    <svg viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg" class="hero-svg">
+                        <!-- Background circle -->
+                        <circle cx="240" cy="160" r="130" fill="#002F61" opacity="0.06"/>
+
+                        <!-- Plate -->
+                        <ellipse cx="240" cy="200" rx="100" ry="18" fill="#D9D2CC" opacity="0.5"/>
+                        <ellipse cx="240" cy="196" rx="98" ry="16" fill="#e8e2dc"/>
+                        <circle  cx="240" cy="168" r="74" fill="#f5f0ea" stroke="#D9D2CC" stroke-width="2"/>
+                        <circle  cx="240" cy="168" r="60" fill="white" stroke="#e8e2dc" stroke-width="1.5"/>
+
+                        <!-- Fork (left) -->
+                        <rect x="120" y="110" width="5" height="80" rx="2.5" fill="#686B8C"/>
+                        <rect x="113" y="108" width="3" height="28" rx="1.5" fill="#686B8C"/>
+                        <rect x="118" y="108" width="3" height="28" rx="1.5" fill="#686B8C"/>
+                        <rect x="123" y="108" width="3" height="28" rx="1.5" fill="#686B8C"/>
+                        <rect x="128" y="108" width="3" height="28" rx="1.5" fill="#686B8C"/>
+
+                        <!-- Knife (right) -->
+                        <rect x="355" y="110" width="5" height="80" rx="2.5" fill="#686B8C"/>
+                        <path d="M355 110 Q370 125 360 145 L355 145 Z" fill="#799CB6"/>
+
+                        <!-- Leaf / food item 1: lettuce-like -->
+                        <ellipse cx="225" cy="158" rx="28" ry="18" fill="#06937E" opacity="0.85" transform="rotate(-15 225 158)"/>
+                        <ellipse cx="225" cy="158" rx="22" ry="14" fill="#8FB3A7" opacity="0.7" transform="rotate(-15 225 158)"/>
+                        <!-- Leaf veins -->
+                        <line x1="210" y1="162" x2="240" y2="155" stroke="#06937E" stroke-width="1" opacity="0.6"/>
+                        <line x1="215" y1="168" x2="235" y2="148" stroke="#06937E" stroke-width="0.8" opacity="0.5"/>
+
+                        <!-- Food item 2: tomato-like circle -->
+                        <circle cx="258" cy="162" r="16" fill="#007293" opacity="0.85"/>
+                        <circle cx="258" cy="162" r="11" fill="#799CB6" opacity="0.7"/>
+                        <!-- Stem -->
+                        <line x1="258" y1="146" x2="258" y2="140" stroke="#005670" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="258" y1="141" x2="254" y2="137" stroke="#06937E" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="258" y1="141" x2="262" y2="137" stroke="#06937E" stroke-width="1.5" stroke-linecap="round"/>
+
+                        <!-- Food item 3: small round grain/pea -->
+                        <circle cx="232" cy="177" r="7"  fill="#005670" opacity="0.8"/>
+                        <circle cx="244" cy="180" r="6"  fill="#005670" opacity="0.7"/>
+                        <circle cx="255" cy="178" r="5"  fill="#005670" opacity="0.75"/>
+
+                        <!-- Recycling / circular arrow (top right of plate area) -->
+                        <g transform="translate(330, 90)">
+                            <circle cx="0" cy="0" r="28" fill="none" stroke="#06937E" stroke-width="2.5" stroke-dasharray="52 18" stroke-linecap="round"/>
+                            <!-- Arrow heads -->
+                            <polygon points="-6,-26 6,-26 0,-18" fill="#06937E"/>
+                            <polygon points="22,16 28,6 20,10" fill="#06937E"/>
+                            <polygon points="-22,16 -20,8 -28,10" fill="#06937E"/>
+                            <!-- Leaf in center -->
+                            <path d="M0 10 Q-8 0 0 -10 Q8 0 0 10Z" fill="#06937E" opacity="0.7"/>
+                        </g>
+
+                        <!-- Scale / balance (bottom left) -->
+                        <g transform="translate(110, 220)">
+                            <rect x="-2" y="-40" width="4" height="40" fill="#686B8C" rx="2"/>
+                            <line x1="-32" y1="-40" x2="32" y2="-40" stroke="#686B8C" stroke-width="2.5"/>
+                            <!-- Left pan (heavy - food waste) -->
+                            <path d="M-50,-40 Q-32,-28 -14,-40" fill="none" stroke="#007293" stroke-width="1.8"/>
+                            <ellipse cx="-32" cy="-28" rx="16" ry="5" fill="#007293" opacity="0.5"/>
+                            <!-- Right pan (lighter - target) -->
+                            <path d="M14,-40 Q32,-48 50,-40" fill="none" stroke="#06937E" stroke-width="1.8"/>
+                            <ellipse cx="32" cy="-48" rx="14" ry="4" fill="#06937E" opacity="0.5"/>
+                            <!-- Base -->
+                            <rect x="-10" y="0" width="20" height="5" rx="2" fill="#686B8C"/>
+                        </g>
+
+                        <!-- Dotted line connecting plate to recycle arrow -->
+                        <path d="M295 170 Q320 150 330 120" fill="none" stroke="#06937E" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.5"/>
+
+                        <!-- Text label: "Reduce" near recycle -->
+                        <text x="362" y="72" font-family="'Segoe UI',sans-serif" font-size="10" fill="#06937E" font-weight="600" letter-spacing="1">REDUCE</text>
+                        <!-- Text label: "Registra" near fork -->
+                        <text x="90" y="220" font-family="'Segoe UI',sans-serif" font-size="10" fill="#686B8C" font-weight="600" letter-spacing="1" transform="rotate(-90 90 220)">REGISTRA</text>
+                    </svg>
+                </div>
+                <div class="home-content">
+                    <div class="home-tag">Hilton Pilar · Gestión Ambiental</div>
+                    <h2 class="home-title">Food Waste<br>Management</h2>
+                    <p class="home-desc">
+                        Registrá, monitoreá y reducí el desperdicio alimentario del hotel.
+                        Cada kg registrado es un paso hacia la sostenibilidad.
+                    </p>
+                    <div class="home-actions">
+                        <button class="btn btn-primary" onclick="APP.goTab('registro')">➕ Nuevo Registro</button>
+                        <button class="btn btn-secondary" onclick="APP.goTab('dashboard')">📊 Ver Dashboard</button>
+                    </div>
+                    <div class="home-stats" id="homeStats"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── DASHBOARD ── -->
+        <div class="view" id="view-dashboard">
+            <div class="month-nav">
+                <button class="mnav-btn" id="dashPrev">◀</button>
+                <span class="mnav-label" id="dashMonthLabel"></span>
+                <button class="mnav-btn" id="dashNext">▶</button>
+            </div>
+            <div class="kpi-grid" id="kpiGrid"></div>
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title">Desperdicio por Sector — Mes Seleccionado</div>
+                    <div class="chart-wrap"><canvas id="chartSector"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Tendencia Mensual — Últimos 6 Meses</div>
+                    <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Índices por Sector — <span id="indexMonthLabel"></span></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Sector</th>
+                                <th>Total kg</th>
+                                <th>Comensales</th>
+                                <th>kg / Comensal</th>
+                                <th>% del Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="indexTbody"></tbody>
+                        <tfoot id="indexTfoot"></tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── REGISTRO ── -->
+        <div class="view" id="view-registro">
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-title">Nuevo Registro de Desperdicio</div>
+                <div class="form-msg msg-ok"  id="fmOk">✓ Registro guardado correctamente.</div>
+                <div class="form-msg msg-err" id="fmErr">✗ Completar todos los campos requeridos.</div>
+                <div class="form-grid">
+                    <div class="fg">
+                        <label>Fecha *</label>
+                        <input type="date" id="rFecha">
+                    </div>
+                    <div class="fg">
+                        <label>Sector *</label>
+                        <select id="rSector"><option value="">Seleccionar sector...</option></select>
+                    </div>
+                    <div class="fg fg-hidden" id="rSubFg">
+                        <label>Subdivisión La Hacienda *</label>
+                        <select id="rSub">
+                            <option value="restaurante">Restaurante</option>
+                            <option value="banquetes">Banquetes</option>
+                        </select>
+                    </div>
+                    <div class="fg">
+                        <label>Peso (kg) *</label>
+                        <input type="number" id="rPeso" placeholder="0.00" min="0.01" step="0.01">
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="APP.saveRecord()">Guardar Registro</button>
+                    <button class="btn btn-secondary" onclick="APP.clearForm()">Limpiar</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Registros de Hoy</div>
+                <div id="todayList"></div>
+            </div>
+        </div>
+
+        <!-- ── HISTORIAL ── -->
+        <div class="view" id="view-historial">
+            <div class="card">
+                <div class="card-title">Historial de Registros</div>
+                <div class="filter-row">
+                    <input type="month" id="hMonth">
+                    <select id="hSector"><option value="">Todos los sectores</option></select>
+                    <button class="btn btn-turq btn-sm" onclick="APP.exportCSV()">⬇ Exportar CSV</button>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Sector</th>
+                                <th>Subdivisión</th>
+                                <th>Peso (kg)</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="histTbody"></tbody>
+                    </table>
+                    <div id="histEmpty" class="empty" style="display:none;">
+                        <div class="empty-icon">📭</div>
+                        <p>Sin registros para este período.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── COMENSALES ── -->
+        <div class="view" id="view-comensales">
+            <div class="card">
+                <div class="card-title">Registro de Comensales por Mes y Sector</div>
+                <p style="font-size:12px;color:var(--text-light);margin-bottom:20px;line-height:1.6;">
+                    Ingrese la cantidad de comensales atendidos por sector. Estos valores se utilizan
+                    para calcular el índice de desperdicio por comensal (kg/comensal).
+                </p>
+                <div class="month-nav">
+                    <button class="mnav-btn" id="comPrev">◀</button>
+                    <span class="mnav-label" id="comMonthLabel"></span>
+                    <button class="mnav-btn" id="comNext">▶</button>
+                </div>
+                <div class="com-grid" id="comGrid"></div>
+                <div style="margin-top:20px;">
+                    <button class="btn btn-primary" onclick="APP.saveComensales()">Guardar Comensales</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Loading overlay while Firebase connects -->
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,47,97,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+    <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+        <circle cx="24" cy="24" r="20" fill="none" stroke="white" stroke-width="4" stroke-dasharray="30 100" stroke-linecap="round">
+            <animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="0.9s" repeatCount="indefinite"/>
+        </circle>
+    </svg>
+    <span style="color:white;font-family:'Segoe UI',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Conectando...</span>
+</div>
+
+<!-- Sync status pill in header area -->
+<div id="syncPill" style="display:none;position:fixed;top:70px;right:16px;z-index:200;background:var(--hilton-teal);color:white;font-size:11px;padding:4px 12px;border-radius:3px;font-family:'Segoe UI',sans-serif;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">● En línea</div>
+
+<!-- Firebase setup banner (shown if config not filled) -->
+<div id="setupBanner" style="display:none;background:#fff3cd;border-bottom:2px solid #c9a84c;padding:12px 20px;font-family:'Segoe UI',sans-serif;font-size:13px;color:#5a4000;position:sticky;top:60px;z-index:150;">
+    ⚙️ <strong>Configuración pendiente:</strong> Abrí el archivo HTML en un editor de texto y reemplazá los valores de <code>FIREBASE_CONFIG</code> con los de tu proyecto Firebase.
+    <a href="https://console.firebase.google.com" target="_blank" style="color:var(--hilton-blue);font-weight:700;">Ir a Firebase Console →</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  FIREBASE CONFIGURATION
+//  → Reemplazá estos valores con los de tu proyecto.
+//  → Conseguilos en: console.firebase.google.com
+//    Proyecto → Configuración → Tus apps → Web app → Config
+// ════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyCFE7tf7Js76rY30GI6PiV2MDhEVolgqVA",
+    authDomain:        "hilton-pilar-foodwaste.firebaseapp.com",
+    projectId:         "hilton-pilar-foodwaste",
+    storageBucket:     "hilton-pilar-foodwaste.firebasestorage.app",
+    messagingSenderId: "762084325746",
+    appId:             "1:762084325746:web:9545c273d738f3268005eb"
+};
+
+// ════════════════════════════════════════════════════════════
+//  SECTOR DEFINITIONS — Hilton brand colors for data viz
+// ════════════════════════════════════════════════════════════
+const SECTORS = [
+    { id: 'lobby_bar',    name: 'Cocina Lobby Bar + Room Service + Restaurante Leonforte', short: 'Lobby Bar / Leonforte',  color: '#007293', cls: 's0' },
+    { id: 'banquetes_pas',name: 'Cocina Banquetes + Pastelería + Desayuno',                short: 'Banquetes / Pastelería', color: '#002F61', cls: 's1' },
+    { id: 'steward',      name: 'Steward (Platos retornados post-consumo)',                short: 'Steward',                color: '#06937E', cls: 's2' },
+    { id: 'club_house',   name: 'Cocina Club House',                                       short: 'Club House',             color: '#686B8C', cls: 's3' },
+    { id: 'hacienda',     name: 'Cocina Restaurante La Hacienda',                          short: 'La Hacienda',            color: '#005670', cls: 's4',
+      subsectors: [{ id: 'restaurante', name: 'Restaurante' }, { id: 'banquetes', name: 'Banquetes' }] }
+];
+
+// ════════════════════════════════════════════════════════════
+//  FIREBASE INIT
+// ════════════════════════════════════════════════════════════
+const FB_CONFIGURED = !Object.values(FIREBASE_CONFIG).some(v => v === 'REEMPLAZAR');
+let db = null;
+if (FB_CONFIGURED) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    // Enable offline persistence
+    db.enablePersistence().catch(() => {});
+}
+
+// ════════════════════════════════════════════════════════════
+//  APP MODULE
+// ════════════════════════════════════════════════════════════
+const APP = (() => {
+
+    // State — records come from Firestore (or localStorage fallback)
+    let records    = [];
+    let comensales = {};
+    let dashMonth  = todayStr().slice(0, 7);
+    let comMonth   = todayStr().slice(0, 7);
+    let mode       = localStorage.getItem('fw3_mode') || 'desktop';
+    let chartSec   = null;
+    let chartTrend = null;
+    let unsubscribe = null;
+    let activeView  = 'home';
+
+    // ── Helpers ─────────────────────────────────────────────
+    function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+    function monthLabel(ym) {
+        if (!ym) return '';
+        const [y, m] = ym.split('-');
+        const M = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        return M[parseInt(m) - 1] + ' ' + y;
+    }
+
+    function fmtDate(d) {
+        const [y, m, dd] = d.split('-');
+        return dd + '/' + m + '/' + y;
+    }
+
+    function shift(ym, n) {
+        const [y, m] = ym.split('-').map(Number);
+        const d = new Date(y, m - 1 + n, 1);
+        return d.toISOString().slice(0, 7);
+    }
+
+    function S(id)          { return SECTORS.find(s => s.id === id); }
+    function SI(id)         { return SECTORS.findIndex(s => s.id === id); }
+    function mRecs(ym)      { return records.filter(r => r.date && r.date.startsWith(ym)); }
+    function sRecs(sid, ym) { return records.filter(r => r.sector === sid && r.date && r.date.startsWith(ym)); }
+    function sumKg(arr)     { return arr.reduce((a, r) => a + parseFloat(r.weight || 0), 0); }
+    function comS(sid, ym)  { return parseInt((comensales[ym] || {})[sid]) || 0; }
+    function comT(ym)       { return SECTORS.reduce((a, s) => a + comS(s.id, ym), 0); }
+
+    function toast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    function flash(id) {
+        const el = document.getElementById(id);
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 3200);
+    }
+
+    function showLoading(on) {
+        document.getElementById('loadingOverlay').style.display = on ? 'flex' : 'none';
+    }
+
+    function refreshCurrentView() {
+        if (activeView === 'dashboard')  renderDashboard();
+        if (activeView === 'registro')   renderTodayList();
+        if (activeView === 'historial')  renderHistorial();
+        renderHomeStats();
+    }
+
+    // ── Firebase Data Layer ──────────────────────────────────
+    function startRealtimeSync() {
+        if (!db) return;
+        // Real-time listener on all records
+        unsubscribe = db.collection('records').onSnapshot(snapshot => {
+            records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            refreshCurrentView();
+            // Show sync pill briefly
+            const pill = document.getElementById('syncPill');
+            pill.style.display = 'block';
+            pill.textContent   = '● Sincronizado';
+            setTimeout(() => pill.style.display = 'none', 2000);
+        }, err => {
+            console.error('Firestore error:', err);
+        });
+    }
+
+    async function dbAddRecord(record) {
+        if (db) {
+            const docRef = await db.collection('records').add(record);
+            return docRef.id;
+        } else {
+            // Fallback: localStorage
+            record.id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+            records.push(record);
+            localStorage.setItem('fw3_records', JSON.stringify(records));
+            return record.id;
+        }
+    }
+
+    async function dbDeleteRecord(id) {
+        if (db) {
+            await db.collection('records').doc(id).delete();
+        } else {
+            records = records.filter(r => r.id !== id);
+            localStorage.setItem('fw3_records', JSON.stringify(records));
+        }
+    }
+
+    async function dbSaveComensales(month, data) {
+        comensales[month] = data;
+        if (db) {
+            await db.collection('comensales').doc(month).set(data);
+        } else {
+            localStorage.setItem('fw3_comensales', JSON.stringify(comensales));
+        }
+    }
+
+    async function dbLoadComensales(month) {
+        if (comensales[month]) return;
+        if (db) {
+            const doc = await db.collection('comensales').doc(month).get();
+            comensales[month] = doc.exists ? doc.data() : {};
+        } else {
+            comensales = JSON.parse(localStorage.getItem('fw3_comensales') || '{}');
+        }
+    }
+
+    // ── Splash / Launch ──────────────────────────────────────
+    function launch(m) {
+        mode = m;
+        localStorage.setItem('fw3_mode', m);
+        applyMode();
+        document.getElementById('splash').classList.add('hidden');
+        document.getElementById('app').classList.add('visible');
+        document.body.classList.add('app-mode');
+
+        if (!FB_CONFIGURED) {
+            document.getElementById('setupBanner').style.display = 'block';
+            // Use localStorage fallback
+            records    = JSON.parse(localStorage.getItem('fw3_records')    || '[]');
+            comensales = JSON.parse(localStorage.getItem('fw3_comensales') || '{}');
+        }
+
+        initApp();
+
+        if (FB_CONFIGURED) {
+            showLoading(true);
+            // First snapshot will hide loading
+            db.collection('records').limit(1).get()
+              .then(() => { showLoading(false); startRealtimeSync(); })
+              .catch(() => { showLoading(false); toast('⚠ Sin conexión — datos en caché'); startRealtimeSync(); });
+        }
+    }
+
+    function goSplash() {
+        if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+        document.getElementById('app').classList.remove('visible');
+        document.getElementById('splash').classList.remove('hidden');
+    }
+
+    function toggleMode() {
+        mode = mode === 'desktop' ? 'mobile' : 'desktop';
+        localStorage.setItem('fw3_mode', mode);
+        applyMode();
+        toast('Modo ' + (mode === 'desktop' ? 'Escritorio' : 'Móvil') + ' activado');
+    }
+
+    function applyMode() {
+        document.body.classList.toggle('mobile-mode', mode === 'mobile');
+    }
+
+    // ── App Init ─────────────────────────────────────────────
+    function initApp() {
+        document.getElementById('headerMonth').textContent = monthLabel(todayStr().slice(0, 7));
+
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => goTab(tab.dataset.view));
+        });
+
+        const rSel = document.getElementById('rSector');
+        const hSel = document.getElementById('hSector');
+        if (!rSel.options.length || rSel.options[0].value === '') {
+            SECTORS.forEach(s => {
+                rSel.add(new Option(s.name, s.id));
+                hSel.add(new Option(s.name, s.id));
+            });
+        }
+        rSel.addEventListener('change', function() {
+            document.getElementById('rSubFg').classList.toggle('fg-hidden', this.value !== 'hacienda');
+        });
+
+        document.getElementById('rFecha').value = todayStr();
+        document.getElementById('hMonth').value = dashMonth;
+        document.getElementById('hMonth').addEventListener('change',  renderHistorial);
+        document.getElementById('hSector').addEventListener('change', renderHistorial);
+
+        document.getElementById('dashPrev').onclick = () => { dashMonth = shift(dashMonth, -1); renderDashboard(); };
+        document.getElementById('dashNext').onclick = () => { dashMonth = shift(dashMonth,  1); renderDashboard(); };
+        document.getElementById('comPrev').onclick  = () => { comMonth  = shift(comMonth,  -1); renderComensales(); };
+        document.getElementById('comNext').onclick  = () => { comMonth  = shift(comMonth,   1); renderComensales(); };
+
+        renderHomeStats();
+    }
+
+    function goTab(view) {
+        activeView = view;
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v  => v.classList.remove('active'));
+        const tab = document.querySelector('.nav-tab[data-view="' + view + '"]');
+        if (tab) tab.classList.add('active');
+        document.getElementById('view-' + view).classList.add('active');
+        if (view === 'dashboard')  renderDashboard();
+        if (view === 'registro')   renderTodayList();
+        if (view === 'historial')  renderHistorial();
+        if (view === 'comensales') renderComensales();
+    }
+
+    function renderHomeStats() {
+        const ym       = todayStr().slice(0, 7);
+        const total    = sumKg(mRecs(ym));
+        const tc       = comT(ym);
+        const idx      = tc > 0 ? (total / tc).toFixed(2) : '—';
+        const todayCnt = records.filter(r => r.date === todayStr()).length;
+        const el = document.getElementById('homeStats');
+        if (!el) return;
+        el.innerHTML =
+            '<div class="hstat"><div class="hstat-val">' + total.toFixed(1) + '</div><div class="hstat-lbl">kg este mes</div></div>' +
+            '<div class="hstat"><div class="hstat-val">' + idx + '</div><div class="hstat-lbl">kg/comensal</div></div>' +
+            '<div class="hstat"><div class="hstat-val">' + todayCnt + '</div><div class="hstat-lbl">registros hoy</div></div>';
+    }
+
+    // ── Dashboard ─────────────────────────────────────────────
+    function renderDashboard() {
+        document.getElementById('dashMonthLabel').textContent  = monthLabel(dashMonth);
+        document.getElementById('indexMonthLabel').textContent = monthLabel(dashMonth);
+
+        const mr    = mRecs(dashMonth);
+        const total = sumKg(mr);
+        const tc    = comT(dashMonth);
+        const idx   = tc > 0 ? (total / tc).toFixed(3) : '—';
+        const prev  = sumKg(mRecs(shift(dashMonth, -1)));
+        let trendHtml = '';
+        if (prev > 0) {
+            const delta = ((total - prev) / prev * 100).toFixed(1);
+            const cls   = parseFloat(delta) > 0 ? 'badge-up' : 'badge-down';
+            const arrow = parseFloat(delta) > 0 ? '▲' : '▼';
+            trendHtml   = '<div class="kpi-badge ' + cls + '">' + arrow + ' ' + Math.abs(delta) + '% vs mes anterior</div>';
+        }
+        let maxS = null, maxKg = 0;
+        SECTORS.forEach(s => { const k = sumKg(sRecs(s.id, dashMonth)); if (k > maxKg) { maxKg = k; maxS = s; } });
+
+        document.getElementById('kpiGrid').innerHTML =
+            '<div class="kpi-card"><div class="kpi-label">Total Desperdicio</div><div class="kpi-value">' + total.toFixed(1) + '</div><div class="kpi-unit">kg este mes</div>' + trendHtml + '</div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice kg / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">kg por comensal atendido</div></div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-teal)"><div class="kpi-label">Comensales Registrados</div><div class="kpi-value">' + (tc > 0 ? tc.toLocaleString('es') : '—') + '</div><div class="kpi-unit">este mes</div>' + (tc === 0 ? '<div class="kpi-badge badge-info">Ingresar en Comensales</div>' : '') + '</div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-blue-tint)"><div class="kpi-label">Mayor Desperdicio</div><div class="kpi-value" style="font-size:16px;font-weight:600;line-height:1.3;">' + (maxS ? maxS.short : '—') + '</div><div class="kpi-unit">' + (maxS ? maxKg.toFixed(1) + ' kg' : 'Sin datos') + '</div></div>';
+
+        buildChartSector(dashMonth);
+        buildChartTrend(dashMonth);
+        buildIndexTable(dashMonth);
+    }
+
+    function buildChartSector(ym) {
+        const ctx  = document.getElementById('chartSector').getContext('2d');
+        const data = SECTORS.map(s => +sumKg(sRecs(s.id, ym)).toFixed(2));
+        if (chartSec) chartSec.destroy();
+        chartSec = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: SECTORS.map(s => s.short),
+                datasets: [{ data, backgroundColor: SECTORS.map(s => s.color + 'cc'), borderColor: SECTORS.map(s => s.color), borderWidth: 1.5, borderRadius: 2 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.parsed.y.toFixed(2) + ' kg' } } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: v => v + ' kg', font: { size: 11 } }, grid: { color: '#e8e2dc' } },
+                    x: { ticks: { font: { size: 10 }, maxRotation: 25 } }
+                }
+            }
+        });
+    }
+
+    function buildChartTrend(ym) {
+        const ctx    = document.getElementById('chartTrend').getContext('2d');
+        const months = [];
+        for (let i = 5; i >= 0; i--) months.push(shift(ym, -i));
+        const labels = months.map(m => monthLabel(m).slice(0, 3) + ' \'' + m.slice(2, 4));
+        const ds     = SECTORS.map(s => ({
+            label: s.short, data: months.map(m => +sumKg(sRecs(s.id, m)).toFixed(2)),
+            borderColor: s.color, backgroundColor: s.color + '15',
+            tension: 0.3, fill: false, pointRadius: 4, pointHoverRadius: 6
+        }));
+        if (chartTrend) chartTrend.destroy();
+        chartTrend = new Chart(ctx, {
+            type: 'line', data: { labels, datasets: ds },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: v => v + ' kg', font: { size: 11 } }, grid: { color: '#e8e2dc' } },
+                    x: { ticks: { font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    function buildIndexTable(ym) {
+        const tot  = sumKg(mRecs(ym));
+        const totC = comT(ym);
+        let html   = '';
+        SECTORS.forEach((s, i) => {
+            const kg  = sumKg(sRecs(s.id, ym));
+            const com = comS(s.id, ym);
+            const idx = com > 0 ? (kg / com).toFixed(3) : '—';
+            const pct = tot > 0 ? (kg / tot * 100) : 0;
+            html += '<tr><td><span class="s-badge ' + s.cls + '">' + s.short + '</span></td>' +
+                '<td>' + kg.toFixed(2) + ' kg</td>' +
+                '<td>' + (com > 0 ? com.toLocaleString('es') : '<span style="color:#aaa;font-size:12px">—</span>') + '</td>' +
+                '<td style="font-weight:700;color:var(--hilton-blue);">' + idx + '</td>' +
+                '<td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + s.color + ';"></div></div><span class="bar-pct">' + pct.toFixed(1) + '%</span></div></td></tr>';
+        });
+        document.getElementById('indexTbody').innerHTML = html;
+        const totalIdx = totC > 0 ? (tot / totC).toFixed(3) : '—';
+        document.getElementById('indexTfoot').innerHTML =
+            '<tr><td>TOTAL</td><td>' + tot.toFixed(2) + ' kg</td><td>' + (totC > 0 ? totC.toLocaleString('es') : '—') + '</td><td>' + totalIdx + '</td><td>100%</td></tr>';
+    }
+
+    // ── Registro ──────────────────────────────────────────────
+    async function saveRecord() {
+        const fecha  = document.getElementById('rFecha').value;
+        const sector = document.getElementById('rSector').value;
+        const peso   = parseFloat(document.getElementById('rPeso').value);
+        let sub = null;
+        if (sector === 'hacienda') sub = document.getElementById('rSub').value;
+        if (!fecha || !sector || !peso || peso <= 0) { flash('fmErr'); return; }
+        const record = { date: fecha, sector, subsector: sub, weight: peso, createdAt: new Date().toISOString() };
+        try {
+            await dbAddRecord(record);
+            flash('fmOk');
+            clearForm();
+            toast('✓ ' + peso.toFixed(2) + ' kg — ' + S(sector).short);
+            if (!db) { renderTodayList(); renderHomeStats(); } // if no Firebase, update manually
+        } catch(e) {
+            console.error(e);
+            flash('fmErr');
+        }
+    }
+
+    function clearForm() {
+        document.getElementById('rPeso').value   = '';
+        document.getElementById('rSector').value = '';
+        document.getElementById('rSubFg').classList.add('fg-hidden');
+    }
+
+    async function deleteRecord(id) {
+        try {
+            await dbDeleteRecord(id);
+            toast('Registro eliminado');
+            if (!db) { renderTodayList(); renderHistorial(); renderHomeStats(); }
+        } catch(e) { console.error(e); }
+    }
+
+    function renderTodayList() {
+        const t   = todayStr();
+        const arr = records.filter(r => r.date === t).slice().reverse();
+        const el  = document.getElementById('todayList');
+        if (!arr.length) {
+            el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Sin registros para hoy</p></div>';
+            return;
+        }
+        let h = '<div class="tbl-wrap"><table><thead><tr><th>Sector</th><th>Subdivisión</th><th>kg</th><th></th></tr></thead><tbody>';
+        arr.forEach(r => {
+            const s = S(r.sector), i = SI(r.sector);
+            if (!s) return;
+            h += '<tr><td><span class="s-badge s' + i + '">' + s.short + '</span></td><td>' +
+                (r.subsector ? (r.subsector[0].toUpperCase() + r.subsector.slice(1)) : '—') +
+                '</td><td><strong>' + parseFloat(r.weight).toFixed(2) + ' kg</strong></td>' +
+                '<td><button class="btn btn-del" onclick="APP.deleteRecord(\'' + r.id + '\')">✕</button></td></tr>';
+        });
+        el.innerHTML = h + '</tbody></table></div>';
+    }
+
+    // ── Historial ─────────────────────────────────────────────
+    function renderHistorial() {
+        const fm = document.getElementById('hMonth').value;
+        const fs = document.getElementById('hSector').value;
+        let arr  = records.slice();
+        if (fm) arr = arr.filter(r => r.date && r.date.startsWith(fm));
+        if (fs) arr = arr.filter(r => r.sector === fs);
+        arr.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const tb  = document.getElementById('histTbody');
+        const emp = document.getElementById('histEmpty');
+        if (!arr.length) { tb.innerHTML = ''; emp.style.display = 'block'; return; }
+        emp.style.display = 'none';
+        let h = '';
+        arr.forEach(r => {
+            const s = S(r.sector); if (!s) return;
+            const i = SI(r.sector);
+            h += '<tr><td>' + fmtDate(r.date) + '</td><td><span class="s-badge s' + i + '">' + s.short + '</span></td><td>' +
+                (r.subsector ? (r.subsector[0].toUpperCase() + r.subsector.slice(1)) : '—') +
+                '</td><td><strong>' + parseFloat(r.weight).toFixed(2) + ' kg</strong></td>' +
+                '<td><button class="btn btn-del" onclick="APP.deleteRecord(\'' + r.id + '\')">✕</button></td></tr>';
+        });
+        tb.innerHTML = h;
+    }
+
+    function exportCSV() {
+        const fm = document.getElementById('hMonth').value;
+        const fs = document.getElementById('hSector').value;
+        let arr  = records.slice();
+        if (fm) arr = arr.filter(r => r.date && r.date.startsWith(fm));
+        if (fs) arr = arr.filter(r => r.sector === fs);
+        arr.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const rows = [['Fecha','Sector','Subsector','Peso (kg)'],
+                      ...arr.map(r => [r.date, S(r.sector) ? S(r.sector).name : r.sector, r.subsector || '', r.weight])];
+        const blob = new Blob(['﻿' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'food-waste-' + (fm || 'total') + '.csv' });
+        a.click(); URL.revokeObjectURL(a.href);
+        toast('✓ CSV exportado');
+    }
+
+    // ── Comensales ────────────────────────────────────────────
+    async function renderComensales() {
+        document.getElementById('comMonthLabel').textContent = monthLabel(comMonth);
+        await dbLoadComensales(comMonth);
+        const c = comensales[comMonth] || {};
+        let h   = '';
+        SECTORS.forEach((s, i) => {
+            h += '<div class="com-card"><div class="com-card-title"><span class="s-badge s' + i + '">' + s.short + '</span></div>';
+            if (s.subsectors) {
+                s.subsectors.forEach(sub => {
+                    h += '<div class="com-row"><label>' + sub.name + '</label>' +
+                         '<input type="number" id="c_' + s.id + '_' + sub.id + '" value="' + (c[s.id + '_' + sub.id] || '') + '" min="0" placeholder="0"></div>';
+                });
+            } else {
+                h += '<div class="com-row"><label>Comensales</label>' +
+                     '<input type="number" id="c_' + s.id + '" value="' + (c[s.id] || '') + '" min="0" placeholder="0"></div>';
+            }
+            h += '</div>';
+        });
+        document.getElementById('comGrid').innerHTML = h;
+    }
+
+    async function saveComensales() {
+        const data = {};
+        SECTORS.forEach(s => {
+            if (s.subsectors) {
+                let t = 0;
+                s.subsectors.forEach(sub => {
+                    const el = document.getElementById('c_' + s.id + '_' + sub.id);
+                    const v  = el ? (parseInt(el.value) || 0) : 0;
+                    data[s.id + '_' + sub.id] = v;
+                    t += v;
+                });
+                data[s.id] = t;
+            } else {
+                const el = document.getElementById('c_' + s.id);
+                data[s.id] = el ? (parseInt(el.value) || 0) : 0;
+            }
+        });
+        await dbSaveComensales(comMonth, data);
+        toast('✓ Comensales guardados — ' + monthLabel(comMonth));
+    }
+
+    return { launch, goSplash, toggleMode, goTab, saveRecord, clearForm, deleteRecord, saveComensales, exportCSV };
+})();
+
+// Auto-launch if previously visited
+(function() {
+    const saved = localStorage.getItem('fw3_mode');
+    if (saved) {
+        document.getElementById('splash').classList.add('hidden');
+        document.getElementById('app').classList.add('visible');
+        document.body.classList.add('app-mode');
+        document.body.classList.toggle('mobile-mode', saved === 'mobile');
+        setTimeout(() => APP.launch(saved), 0);
+    }
+})();
+</script>
+</body>
+</html>
