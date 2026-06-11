@@ -848,17 +848,21 @@
         <!-- ── COMENSALES ── -->
         <div class="view" id="view-comensales">
             <div class="card">
-                <div class="card-title">Registro de Comensales por Mes y Sector</div>
+                <div class="card-title">Registro de Comensales</div>
                 <p style="font-size:12px;color:var(--text-light);margin-bottom:20px;line-height:1.6;">
-                    Ingrese la cantidad de comensales atendidos por sector. Estos valores se utilizan
-                    para calcular el índice de desperdicio por comensal (kg/comensal).
+                    Ingrese el total de comensales atendidos en el mes. Este valor se utiliza
+                    para calcular el índice de desperdicio total (kg/comensal).
                 </p>
                 <div class="month-nav">
                     <button class="mnav-btn" id="comPrev">◀</button>
                     <span class="mnav-label" id="comMonthLabel"></span>
                     <button class="mnav-btn" id="comNext">▶</button>
                 </div>
-                <div class="com-grid" id="comGrid"></div>
+                <div style="margin-top:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <label style="font-size:13px;color:var(--text-light);font-family:'Segoe UI',sans-serif;">Total de comensales en el mes:</label>
+                    <input type="number" id="comTotal" min="0" placeholder="0"
+                        style="width:140px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:18px;font-weight:700;text-align:center;font-family:'Segoe UI',sans-serif;color:var(--hilton-blue);">
+                </div>
                 <div style="margin-top:20px;">
                     <button class="btn btn-primary" onclick="APP.saveComensales()">Guardar Comensales</button>
                 </div>
@@ -973,8 +977,8 @@ const APP = (() => {
     function mRecs(ym)      { return records.filter(r => r.date && r.date.startsWith(ym)); }
     function sRecs(sid, ym) { return records.filter(r => r.sector === sid && r.date && r.date.startsWith(ym)); }
     function sumKg(arr)     { return arr.reduce((a, r) => a + parseFloat(r.weight || 0), 0); }
-    function comS(sid, ym)  { return parseInt((comensales[ym] || {})[sid]) || 0; }
-    function comT(ym)       { return SECTORS.reduce((a, s) => a + comS(s.id, ym), 0); }
+    function comS(sid, ym)  { return comT(ym); }
+    function comT(ym)       { return parseInt((comensales[ym] || {}).total) || 0; }
 
     function toast(msg) {
         const el = document.getElementById('toast');
@@ -1358,42 +1362,14 @@ const APP = (() => {
     async function renderComensales() {
         document.getElementById('comMonthLabel').textContent = monthLabel(comMonth);
         await dbLoadComensales(comMonth);
-        const c = comensales[comMonth] || {};
-        let h   = '';
-        SECTORS.forEach((s, i) => {
-            h += '<div class="com-card"><div class="com-card-title"><span class="s-badge s' + i + '">' + s.short + '</span></div>';
-            if (s.subsectors) {
-                s.subsectors.forEach(sub => {
-                    h += '<div class="com-row"><label>' + sub.name + '</label>' +
-                         '<input type="number" id="c_' + s.id + '_' + sub.id + '" value="' + (c[s.id + '_' + sub.id] || '') + '" min="0" placeholder="0"></div>';
-                });
-            } else {
-                h += '<div class="com-row"><label>Comensales</label>' +
-                     '<input type="number" id="c_' + s.id + '" value="' + (c[s.id] || '') + '" min="0" placeholder="0"></div>';
-            }
-            h += '</div>';
-        });
-        document.getElementById('comGrid').innerHTML = h;
+        const total = (comensales[comMonth] || {}).total || '';
+        document.getElementById('comTotal').value = total;
     }
 
     async function saveComensales() {
-        const data = {};
-        SECTORS.forEach(s => {
-            if (s.subsectors) {
-                let t = 0;
-                s.subsectors.forEach(sub => {
-                    const el = document.getElementById('c_' + s.id + '_' + sub.id);
-                    const v  = el ? (parseInt(el.value) || 0) : 0;
-                    data[s.id + '_' + sub.id] = v;
-                    t += v;
-                });
-                data[s.id] = t;
-            } else {
-                const el = document.getElementById('c_' + s.id);
-                data[s.id] = el ? (parseInt(el.value) || 0) : 0;
-            }
-        });
-        await dbSaveComensales(comMonth, data);
+        const el = document.getElementById('comTotal');
+        const total = el ? (parseInt(el.value) || 0) : 0;
+        await dbSaveComensales(comMonth, { total });
         toast('✓ Comensales guardados — ' + monthLabel(comMonth));
     }
 
