@@ -832,7 +832,7 @@
                 <div class="card-title">Registro de Comensales</div>
                 <p style="font-size:12px;color:var(--text-light);margin-bottom:20px;line-height:1.6;">
                     Ingrese el total de comensales atendidos en el mes. Este valor se utiliza
-                    para calcular el índice de desperdicio total (kg/comensal).
+                    para calcular el índice de desperdicio total (g/comensal).
                 </p>
                 <div class="month-nav">
                     <button class="mnav-btn" id="comPrev">◀</button>
@@ -1146,7 +1146,7 @@ const APP = (() => {
         const ym       = todayStr().slice(0, 7);
         const total    = sumKg(mRecs(ym));
         const tc       = comT(ym);
-        const idx      = tc > 0 ? (total / tc).toFixed(2) : '—';
+        const idx      = tc > 0 ? (total / tc * 1000).toFixed(1) : '—';
         const todayCnt = records.filter(r => r.date === todayStr()).length;
         const el = document.getElementById('homeStats');
         if (!el) return;
@@ -1163,7 +1163,7 @@ const APP = (() => {
         const mr    = mRecs(dashMonth);
         const total = sumKg(mr);
         const tc    = comT(dashMonth);
-        const idx   = tc > 0 ? (total / tc).toFixed(3) : '—';
+        const idx   = tc > 0 ? (total / tc * 1000).toFixed(2) : '—';
         const prev  = sumKg(mRecs(shift(dashMonth, -1)));
         let trendHtml = '';
         if (prev > 0) {
@@ -1177,7 +1177,7 @@ const APP = (() => {
 
         document.getElementById('kpiGrid').innerHTML =
             '<div class="kpi-card"><div class="kpi-label">Total Desperdicio</div><div class="kpi-value">' + total.toFixed(1) + '</div><div class="kpi-unit">kg este mes</div>' + trendHtml + '</div>' +
-            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice kg / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">kg por comensal atendido</div></div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice g / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">g por comensal atendido</div></div>' +
             '<div class="kpi-card" style="border-top-color:var(--hilton-teal)"><div class="kpi-label">Comensales Registrados</div><div class="kpi-value">' + (tc > 0 ? tc.toLocaleString('es') : '—') + '</div><div class="kpi-unit">este mes</div>' + (tc === 0 ? '<div class="kpi-badge badge-info">Ingresar en Comensales</div>' : '') + '</div>' +
             '<div class="kpi-card" style="border-top-color:var(--hilton-blue-tint)"><div class="kpi-label">Mayor Desperdicio</div><div class="kpi-value" style="font-size:16px;font-weight:600;line-height:1.3;">' + (maxS ? maxS.short : '—') + '</div><div class="kpi-unit">' + (maxS ? maxKg.toFixed(1) + ' kg' : 'Sin datos') + '</div></div>';
 
@@ -1237,7 +1237,7 @@ const APP = (() => {
         SECTORS.forEach((s, i) => {
             const kg  = sumKg(sRecs(s.id, ym));
             const com = comS(s.id, ym);
-            const idx = com > 0 ? (kg / com).toFixed(3) : '—';
+            const idx = com > 0 ? (kg / com * 1000).toFixed(2) : '—';
             const pct = tot > 0 ? (kg / tot * 100) : 0;
             html += '<tr><td><span class="s-badge ' + s.cls + '">' + s.short + '</span></td>' +
                 '<td>' + kg.toFixed(2) + ' kg</td>' +
@@ -1246,7 +1246,7 @@ const APP = (() => {
                 '<td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + s.color + ';"></div></div><span class="bar-pct">' + pct.toFixed(1) + '%</span></div></td></tr>';
         });
         document.getElementById('indexTbody').innerHTML = html;
-        const totalIdx = totC > 0 ? (tot / totC).toFixed(3) : '—';
+        const totalIdx = totC > 0 ? (tot / totC * 1000).toFixed(2) : '—';
         document.getElementById('indexTfoot').innerHTML =
             '<tr><td>TOTAL</td><td>' + tot.toFixed(2) + ' kg</td><td>' + (totC > 0 ? totC.toLocaleString('es') : '—') + '</td><td>' + totalIdx + '</td><td>100%</td></tr>';
     }
