@@ -1063,10 +1063,19 @@ const APP = (() => {
 
         if (FB_CONFIGURED) {
             showLoading(true);
-            // First snapshot will hide loading
             db.collection('records').limit(1).get()
               .then(() => { showLoading(false); startRealtimeSync(); })
-              .catch(() => { showLoading(false); toast('⚠ Sin conexión — datos en caché'); startRealtimeSync(); });
+              .catch(e => {
+                  showLoading(false);
+                  if (e && e.code === 'permission-denied') {
+                      db = null;
+                      toast('⚠ Firebase sin permisos — guardando localmente');
+                      renderTodayList(); renderHomeStats();
+                  } else {
+                      toast('⚠ Sin conexión — datos en caché');
+                      startRealtimeSync();
+                  }
+              });
         }
     }
 
