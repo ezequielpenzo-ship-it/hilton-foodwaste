@@ -748,33 +748,13 @@
             </div>
             <div class="kpi-grid" id="kpiGrid"></div>
             <div class="charts-grid">
-                <div class="card">
-                    <div class="card-title">Desperdicio por Sector — Mes Seleccionado</div>
-                    <div class="chart-wrap"><canvas id="chartSector"></canvas></div>
-                </div>
+
                 <div class="card">
                     <div class="card-title">Tendencia Mensual — Últimos 6 Meses</div>
                     <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-title">Índices por Sector — <span id="indexMonthLabel"></span></div>
-                <div class="tbl-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Sector</th>
-                                <th>Total kg</th>
-                                <th>Comensales</th>
-                                <th>kg / Comensal</th>
-                                <th>% del Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="indexTbody"></tbody>
-                        <tfoot id="indexTfoot"></tfoot>
-                    </table>
-                </div>
-            </div>
+
         </div>
 
         <!-- ── REGISTRO ── -->
@@ -1168,8 +1148,7 @@ const APP = (() => {
 
     // ── Dashboard ─────────────────────────────────────────────
     function renderDashboard() {
-        document.getElementById('dashMonthLabel').textContent  = monthLabel(dashMonth);
-        document.getElementById('indexMonthLabel').textContent = monthLabel(dashMonth);
+        document.getElementById('dashMonthLabel').textContent = monthLabel(dashMonth);
 
         const mr    = mRecs(dashMonth);
         const total = sumKg(mr);
@@ -1192,9 +1171,7 @@ const APP = (() => {
             '<div class="kpi-card" style="border-top-color:var(--hilton-teal)"><div class="kpi-label">Comensales Registrados</div><div class="kpi-value">' + (tc > 0 ? tc.toLocaleString('es') : '—') + '</div><div class="kpi-unit">este mes</div>' + (tc === 0 ? '<div class="kpi-badge badge-info">Ingresar en Comensales</div>' : '') + '</div>' +
             '<div class="kpi-card" style="border-top-color:var(--hilton-blue-tint)"><div class="kpi-label">Mayor Desperdicio</div><div class="kpi-value" style="font-size:16px;font-weight:600;line-height:1.3;">' + (maxS ? maxS.short : '—') + '</div><div class="kpi-unit">' + (maxS ? maxKg.toFixed(1) + ' kg' : 'Sin datos') + '</div></div>';
 
-        buildChartSector(dashMonth);
         buildChartTrend(dashMonth);
-        buildIndexTable(dashMonth);
     }
 
     function buildChartSector(ym) {
