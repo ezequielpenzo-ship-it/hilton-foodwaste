@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food Waste Manager · Hilton</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <!-- Firebase ShDK (compat v10) -->
+    <!-- Firebase SDK (compat v10) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <style>
         /* ══════════════════════════════════════════
            HILTON BRAND PALETTE
@@ -231,7 +232,7 @@
             padding: 14px 24px;
             font-size: 12px; font-weight: 600;
             letter-spacing: 1.2px;
-            text-transform: uppercase;
+    2       text-transform: uppercase;
             color: var(--text-light);
             cursor: pointer;
             border-bottom: 3px solid transparent;
@@ -241,7 +242,7 @@
             user-select: none;
         }
         .nav-tab:hover { color: var(--hilton-blue); background: var(--bg); }
-        .nav-tab.active {
+    2   .nav-tab.active {
             color: var(--hilton-blue);
             border-bottom-color: var(--hilton-turquoise);
             background: var(--bg);
@@ -378,6 +379,64 @@
             text-transform: none; letter-spacing: 0;
         }
         .btn-del:hover { background: #8b0000; color: white; border-color: #8b0000; }
+        .btn-edit {
+            background: transparent; color: var(--hilton-blue);
+            border: 1px solid var(--hilton-turq-tint); padding: 4px 10px;
+            font-size: 11px; border-radius: var(--radius);
+            text-transform: none; letter-spacing: 0; cursor: pointer;
+        }
+        .btn-edit:hover { background: var(--hilton-blue); color: white; border-color: var(--hilton-blue); }
+        .action-cell { display: flex; gap: 5px; align-items: center; }
+
+        /* ─── EDIT MODAL ─── */
+        #editModal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,47,97,0.55); z-index: 8000;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        #editModal.open { display: flex; }
+        .em-box {
+            background: var(--white); border-radius: 6px;
+            box-shadow: 0 12px 48px rgba(0,47,97,0.3);
+            width: 100%; max-width: 600px;
+            max-height: 90vh; overflow-y: auto;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .em-header {
+            background: var(--hilton-blue); color: white;
+            padding: 16px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-radius: 6px 6px 0 0;
+        }
+        .em-header span { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+        .em-header button {
+            background: none; border: none; color: rgba(255,255,255,0.7);
+            font-size: 20px; cursor: pointer; line-height: 1; padding: 0;
+        }
+        .em-header button:hover { color: white; }
+        .em-body { padding: 24px 20px 8px; }
+        .em-footer {
+            padding: 12px 20px 20px;
+            display: flex; gap: 10px; justify-content: flex-end;
+            border-top: 1px solid var(--bg);
+        }
+
+        /* ─── COMENSALES STATUS ─── */
+        .com-status {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 20px; padding: 10px 14px;
+            border-radius: var(--radius); font-size: 12px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .com-status.ok  { background: #e6f4f0; color: var(--hilton-teal-shade); border-left: 3px solid var(--hilton-teal); }
+        .com-status.warn { background: #fff3cd; color: #7a5500; border-left: 3px solid #c9a84c; }
+        .com-status-icon { font-size: 16px; }
+        .com-total-badge {
+            display: inline-block; background: var(--hilton-blue); color: white;
+            border-radius: 3px; padding: 2px 10px; font-size: 11px; font-weight: 700;
+            margin-left: auto;
+        }
         .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
         /* ─── MESSAGES ─── */
@@ -515,7 +574,7 @@
             margin-bottom: 18px;
         }
         @media (max-width: 760px) { .home-title { font-size: 30px; } }
-        .home-desc {
+    0   .home-desc {
             font-size: 14px; color: var(--text-light);
             line-height: 1.7; margin-bottom: 28px;
             max-width: 380px;
@@ -541,6 +600,92 @@
             font-size: 9px; font-weight: 700;
             text-transform: uppercase; letter-spacing: 1px;
             color: var(--text-light); margin-top: 4px;
+        }
+
+        /* ─── PHOTO UPLOAD ─── */
+        .photo-upload-area {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.18s;
+            background: var(--bg);
+            position: relative;
+        }
+        .photo-upload-area:hover, .photo-upload-area.dragover {
+            border-color: var(--hilton-blue);
+            background: #eef1f7;
+        }
+        .photo-upload-area input[type="file"] {
+            position: absolute; inset: 0;
+            opacity: 0; cursor: pointer; width: 100%; height: 100%;
+        }
+        .photo-upload-label {
+            font-size: 12px; color: var(--text-light);
+            pointer-events: none;
+        }
+        .photo-upload-label span { font-size: 22px; display: block; margin-bottom: 6px; }
+        .photo-upload-label strong { color: var(--hilton-blue); }
+
+        .photo-preview-grid {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            margin-top: 12px;
+        }
+        .photo-thumb {
+            position: relative; width: 80px; height: 80px;
+            border-radius: var(--radius); overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+        .photo-thumb img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .photo-thumb-del {
+            position: absolute; top: 2px; right: 2px;
+            background: rgba(139,0,0,0.8); color: white;
+            border: none; border-radius: 50%;
+            width: 18px; height: 18px; font-size: 10px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            line-height: 1;
+        }
+        .photo-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #e8edf5; color: var(--hilton-blue);
+            border-radius: 3px; padding: 2px 7px; font-size: 11px;
+            cursor: pointer; text-decoration: none;
+        }
+        .photo-badge:hover { background: var(--hilton-blue); color: white; }
+
+        /* ─── PHOTO MODAL ─── */
+        #photoModal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85); z-index: 9000;
+            align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        #photoModal.open { display: flex; }
+        #photoModal .pm-close {
+            position: absolute; top: 20px; right: 24px;
+            color: white; font-size: 28px; cursor: pointer; background: none; border: none;
+            line-height: 1;
+        }
+        #photoModal .pm-img {
+            max-width: 90vw; max-height: 85vh;
+            border-radius: 4px; box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        }
+        #photoModal .pm-nav {
+            display: flex; gap: 16px; margin-top: 14px;
+        }
+        #photoModal .pm-nav button {
+            background: rgba(255,255,255,0.15); color: white;
+            border: 1px solid rgba(255,255,255,0.3); border-radius: 3px;
+            padding: 6px 18px; cursor: pointer; font-size: 14px;
+   0    }
+        #photoModal .pm-nav button:hover { background: rgba(255,255,255,0.3); }
+        #photoModal .pm-counter {
+            color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 8px;
+            font-family: 'Segoe UI', sans-serif;
         }
 
         /* ─── MOBILE ADJUSTMENTS ─── */
@@ -575,14 +720,14 @@
                       font-family="Georgia, 'Times New Roman', serif"
                       font-size="62" font-weight="700"
                       fill="white" letter-spacing="-1">Hilton</text>
-                <!-- ® symbol -->
+   0            <!-- ® symbol -->
                 <text x="236" y="22" text-anchor="middle"
                       font-family="Georgia, serif" font-size="14"
                       fill="white">®</text>
                 <!-- PILAR subtitle -->
                 <text x="140" y="80" text-anchor="middle"
                       font-family="'Segoe UI', Arial, sans-serif"
-                      font-size="13" font-weight="600"
+          0           font-size="13" font-weight="600"
                       fill="white" letter-spacing="6">PILAR</text>
             </svg>
         </div>
@@ -600,7 +745,7 @@
             <div class="splash-card-desc">Dashboard completo con gráficos y tablas</div>
         </div>
         <div class="splash-card" onclick="APP.launch('mobile')">
-            <div class="splash-card-icon">📱</div>
+           0<div class="splash-card-icon">📱</div>
             <div class="splash-card-name">Móvil</div>
             <div class="splash-card-desc">Interfaz compacta optimizada para táctil</div>
         </div>
@@ -617,7 +762,7 @@
     <header>
         <div class="header-left">
             <div class="header-logo-wrap" onclick="APP.goSplash()" title="Volver al inicio">
-                <svg viewBox="0 0 200 46" xmlns="http://www.w3.org/2000/svg" style="height:38px;width:auto;">
+  0             <svg viewBox="0 0 200 46" xmlns="http://www.w3.org/2000/svg" style="height:38px;width:auto;">
                     <text x="0" y="34" font-family="Georgia,'Times New Roman',serif"
                           font-size="40" font-weight="700" fill="white" letter-spacing="-0.5">Hilton</text>
                     <text x="163" y="12" font-family="Georgia,serif" font-size="11" fill="white">®</text>
@@ -703,11 +848,11 @@
                         <!-- Scale / balance (bottom left) -->
                         <g transform="translate(110, 220)">
                             <rect x="-2" y="-40" width="4" height="40" fill="#686B8C" rx="2"/>
-                            <line x1="-32" y1="-40" x2="32" y2="-40" stroke="#686B8C" stroke-width="2.5"/>
+                         0  <line x1="-32" y1="-40" x2="32" y2="-40" stroke="#686B8C" stroke-width="2.5"/>
                             <!-- Left pan (heavy - food waste) -->
                             <path d="M-50,-40 Q-32,-28 -14,-40" fill="none" stroke="#007293" stroke-width="1.8"/>
                             <ellipse cx="-32" cy="-28" rx="16" ry="5" fill="#007293" opacity="0.5"/>
-                            <!-- Right pan (lighter - target) -->
+           0                <!-- Right pan (lighter - target) -->
                             <path d="M14,-40 Q32,-48 50,-40" fill="none" stroke="#06937E" stroke-width="1.8"/>
                             <ellipse cx="32" cy="-48" rx="14" ry="4" fill="#06937E" opacity="0.5"/>
                             <!-- Base -->
@@ -748,13 +893,33 @@
             </div>
             <div class="kpi-grid" id="kpiGrid"></div>
             <div class="charts-grid">
-
+                <div class="card">
+                    <div class="card-title">Desperdicio por Sector — Mes Seleccionado</div>
+                    <div class="chart-wrap"><canvas id="chartSector"></canvas></div>
+                </div>
                 <div class="card">
                     <div class="card-title">Tendencia Mensual — Últimos 6 Meses</div>
                     <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
                 </div>
             </div>
-
+  0         <div class="card">
+                <div class="card-title">Índices por Sector — <span id="indexMonthLabel"></span></div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Sector</th>
+                                <th>Total kg</th>
+           0                    <th>Comensales</th>
+                                <th>g / Comensal</th>
+                                <th>% del Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="indexTbody"></tbody>
+                        <tfoot id="indexTfoot"></tfoot>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <!-- ── REGISTRO ── -->
@@ -763,11 +928,14 @@
                 <div class="card-title">Nuevo Registro de Desperdicio</div>
                 <div class="form-msg msg-ok"  id="fmOk">✓ Registro guardado correctamente.</div>
                 <div class="form-msg msg-err" id="fmErr">✗ Completar todos los campos requeridos.</div>
-                <div class="form-msg msg-err" id="fmSaveErr">✗ Error al guardar. Verificar conexión con Firebase.</div>
                 <div class="form-grid">
                     <div class="fg">
                         <label>Fecha *</label>
                         <input type="date" id="rFecha">
+                    </div>
+                    <div class="fg">
+                        <label>Horario del pesaje</label>
+                        <input type="time" id="rHorario">
                     </div>
                     <div class="fg">
                         <label>Sector *</label>
@@ -781,9 +949,25 @@
                         </select>
                     </div>
                     <div class="fg">
-                        <label>Peso (kg) *</label>
+                  0     <label>Peso (kg) *</label>
                         <input type="number" id="rPeso" placeholder="0.00" min="0.01" step="0.01">
                     </div>
+                    <div class="fg">
+                        <label>Responsable</label>
+                        <input type="text" id="rResponsable" placeholder="Nombre del responsable">
+                    </div>
+  0             </div>
+                <div class="fg" style="margin-bottom:16px;">
+                    <label>Fotos (opcional)</label>
+                    <div class="photo-upload-area" id="photoUploadArea">
+                        <input type="file" id="rFotos" accept="image/*" multiple onchange="APP.onPhotosSelected(this)">
+                        <div class="photo-upload-label">
+                            <span>📷</span>
+                            <strong>Adjuntar fotos</strong><br>
+                            Clic o arrastrá las imágenes aquí
+                        </div>
+                    </div>
+                    <div class="photo-preview-grid" id="photoPreviewGrid"></div>
                 </div>
                 <div class="btn-row">
                     <button class="btn btn-primary" onclick="APP.saveRecord()">Guardar Registro</button>
@@ -810,9 +994,12 @@
                         <thead>
                             <tr>
                                 <th>Fecha</th>
+                                <th>Hora</th>
                                 <th>Sector</th>
                                 <th>Subdivisión</th>
                                 <th>Peso (kg)</th>
+                                <th>Responsable</th>
+                                <th>Fotos</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -829,23 +1016,24 @@
         <!-- ── COMENSALES ── -->
         <div class="view" id="view-comensales">
             <div class="card">
-                <div class="card-title">Registro de Comensales</div>
+                <div class="card-title">Comensales del Mes</div>
                 <p style="font-size:12px;color:var(--text-light);margin-bottom:20px;line-height:1.6;">
-                    Ingrese el total de comensales atendidos en el mes. Este valor se utiliza
-                    para calcular el índice de desperdicio total (g/comensal).
+                    Ingresá el total de comensales atendidos en el mes. Se usa para calcular el índice de desperdicio (kg/comensal).
                 </p>
                 <div class="month-nav">
                     <button class="mnav-btn" id="comPrev">◀</button>
                     <span class="mnav-label" id="comMonthLabel"></span>
                     <button class="mnav-btn" id="comNext">▶</button>
                 </div>
-                <div style="margin-top:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                    <label style="font-size:13px;color:var(--text-light);font-family:'Segoe UI',sans-serif;">Total de comensales en el mes:</label>
-                    <input type="number" id="comTotal" min="0" placeholder="0"
-                        style="width:140px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:18px;font-weight:700;text-align:center;font-family:'Segoe UI',sans-serif;color:var(--hilton-blue);">
+                <div id="comStatus"></div>
+                <div style="margin: 20px 0; max-width: 320px;">
+                    <div class="fg">
+                        <label>Total de comensales *</label>
+                        <input type="number" id="comTotal" min="0" placeholder="0" style="font-size:22px;padding:12px 16px;text-align:right;">
+                    </div>
                 </div>
-                <div style="margin-top:20px;">
-                    <button class="btn btn-primary" onclick="APP.saveComensales()">Guardar Comensales</button>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="APP.saveComensales()">Guardar</button>
                 </div>
             </div>
         </div>
@@ -854,7 +1042,7 @@
 </div>
 
 <!-- Loading overlay while Firebase connects -->
-<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,47,97,0.7);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,47,97,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
     <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
         <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
         <circle cx="24" cy="24" r="20" fill="none" stroke="white" stroke-width="4" stroke-dasharray="30 100" stroke-linecap="round">
@@ -871,6 +1059,67 @@
 <div id="setupBanner" style="display:none;background:#fff3cd;border-bottom:2px solid #c9a84c;padding:12px 20px;font-family:'Segoe UI',sans-serif;font-size:13px;color:#5a4000;position:sticky;top:60px;z-index:150;">
     ⚙️ <strong>Configuración pendiente:</strong> Abrí el archivo HTML en un editor de texto y reemplazá los valores de <code>FIREBASE_CONFIG</code> con los de tu proyecto Firebase.
     <a href="https://console.firebase.google.com" target="_blank" style="color:var(--hilton-blue);font-weight:700;">Ir a Firebase Console →</a>
+</div>
+
+<div id="editModal">
+    <div class="em-box">
+        <div class="em-header">
+            <span>✏️ Editar Registro</span>
+            <button onclick="APP.closeEditModal()">✕</button>
+        </div>
+        <div class="em-body">
+            <div class="form-msg msg-ok"  id="emOk">✓ Cambios guardados.</div>
+            <div class="form-msg msg-err" id="emErr">✗ Completar todos los campos requeridos.</div>
+            <input type="hidden" id="emId">
+            <div class="form-grid">
+                <div class="fg">
+                    <label>Fecha *</label>
+                    <input type="date" id="emFecha">
+                </div>
+                <div class="fg">
+                    <label>Horario del pesaje</label>
+                    <input type="time" id="emHorario">
+                </div>
+                <div class="fg">
+                    <label>Sector *</label>
+                    <select id="emSector"><option value="">Seleccionar sector...</option></select>
+                </div>
+                <div class="fg fg-hidden" id="emSubFg">
+                    <label>Subdivisión La Hacienda *</label>
+                    <select id="emSub">
+                        <option value="restaurante">Restaurante</option>
+                        <option value="banquetes">Banquetes</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Peso (kg) *</label>
+                    <input type="number" id="emPeso" placeholder="0.00" min="0.01" step="0.01">
+                </div>
+                <div class="fg">
+                    <label>Responsable</label>
+                    <input type="text" id="emResponsable" placeholder="Nombre del responsable">
+                </div>
+            </div>
+            <div id="emPhotosWrap" style="margin-bottom:12px;display:none;">
+                <div style="font-size:10px;font-weight:700;color:var(--hilton-blue);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;">Fotos adjuntas</div>
+                <div class="photo-preview-grid" id="emPhotosGrid"></div>
+            </div>
+        </div>
+        <div class="em-footer">
+            <button class="btn btn-secondary btn-sm" onclick="APP.closeEditModal()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="APP.saveEdit()">Guardar Cambios</button>
+        </div>
+    </div>
+</div>
+
+<div id="photoModal">
+    <button class="pm-close" onclick="APP.closePhotoModal()">✕</button>
+    <img class="pm-img" id="pmImg" src="" alt="">
+    <div class="pm-nav">
+        <button onclick="APP.pmNav(-1)">◀ Anterior</button>
+        <button onclick="APP.pmNav(1)">Siguiente ▶</button>
+    </div>
+    <div class="pm-counter" id="pmCounter"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -907,12 +1156,13 @@ const SECTORS = [
 //  FIREBASE INIT
 // ════════════════════════════════════════════════════════════
 const FB_CONFIGURED = !Object.values(FIREBASE_CONFIG).some(v => v === 'REEMPLAZAR');
-let db = null;
+let db      = null;
+let storage = null;
 if (FB_CONFIGURED) {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
-    // Enable offline persistence
     db.enablePersistence().catch(() => {});
+    try { storage = firebase.storage(); } catch(e) {}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -921,15 +1171,18 @@ if (FB_CONFIGURED) {
 const APP = (() => {
 
     // State — records come from Firestore (or localStorage fallback)
-    let records    = [];
-    let comensales = {};
-    let dashMonth  = todayStr().slice(0, 7);
-    let comMonth   = todayStr().slice(0, 7);
-    let mode       = localStorage.getItem('fw3_mode') || 'desktop';
-    let chartSec   = null;
-    let chartTrend = null;
-    let unsubscribe = null;
-    let activeView  = 'home';
+    let records       = [];
+    let comensales    = {};
+    let dashMonth     = todayStr().slice(0, 7);
+    let comMonth      = todayStr().slice(0, 7);
+    let mode          = localStorage.getItem('fw3_mode') || 'desktop';
+    let chartSec      = null;
+    let chartTrend    = null;
+    let unsubscribe   = null;
+    let activeView    = 'home';
+    let selectedFiles = [];   // files queued for photo upload
+    let pmPhotos      = [];   // photos currently open in modal
+    let pmIndex       = 0;
 
     // ── Helpers ─────────────────────────────────────────────
     function todayStr() { return new Date().toISOString().split('T')[0]; }
@@ -958,8 +1211,14 @@ const APP = (() => {
     function mRecs(ym)      { return records.filter(r => r.date && r.date.startsWith(ym)); }
     function sRecs(sid, ym) { return records.filter(r => r.sector === sid && r.date && r.date.startsWith(ym)); }
     function sumKg(arr)     { return arr.reduce((a, r) => a + parseFloat(r.weight || 0), 0); }
-    function comS(sid, ym)  { return comT(ym); }
-    function comT(ym)       { return parseInt((comensales[ym] || {}).total) || 0; }
+    function comS(sid, ym)  { return 0; } // sector-level not used; single monthly total
+    function comT(ym)       {
+        const c = comensales[ym] || {};
+        // New format: single total field
+        if (c.total !== undefined) return parseInt(c.total) || 0;
+        // Legacy: sum of sector fields (backward compat)
+        return SECTORS.reduce((a, s) => a + (parseInt(c[s.id]) || 0), 0);
+    }
 
     function toast(msg) {
         const el = document.getElementById('toast');
@@ -1024,6 +1283,17 @@ const APP = (() => {
         }
     }
 
+    async function dbUpdateRecord(id, updates) {
+        if (db) {
+            await db.collection('records').doc(id).update(updates);
+        } else {
+            const r = records.find(r => r.id === id);
+            if (r) Object.assign(r, updates);
+            localStorage.setItem('fw3_records', JSON.stringify(records));
+            refreshCurrentView();
+        }
+    }
+
     async function dbSaveComensales(month, data) {
         comensales[month] = data;
         if (db) {
@@ -1063,19 +1333,10 @@ const APP = (() => {
 
         if (FB_CONFIGURED) {
             showLoading(true);
+            // First snapshot will hide loading
             db.collection('records').limit(1).get()
               .then(() => { showLoading(false); startRealtimeSync(); })
-              .catch(e => {
-                  showLoading(false);
-                  if (e && e.code === 'permission-denied') {
-                      db = null;
-                      toast('⚠ Firebase sin permisos — guardando localmente');
-                      renderTodayList(); renderHomeStats();
-                  } else {
-                      toast('⚠ Sin conexión — datos en caché');
-                      startRealtimeSync();
-                  }
-              });
+              .catch(() => { showLoading(false); toast('⚠ Sin conexión — datos en caché'); startRealtimeSync(); });
         }
     }
 
@@ -1146,24 +1407,26 @@ const APP = (() => {
         const ym       = todayStr().slice(0, 7);
         const total    = sumKg(mRecs(ym));
         const tc       = comT(ym);
-        const idx      = tc > 0 ? (total / tc * 1000).toFixed(1) : '—';
+        const idx      = tc > 0 ? ((total / tc) * 1000).toFixed(1) + ' g' : '—';
         const todayCnt = records.filter(r => r.date === todayStr()).length;
         const el = document.getElementById('homeStats');
         if (!el) return;
         el.innerHTML =
             '<div class="hstat"><div class="hstat-val">' + total.toFixed(1) + '</div><div class="hstat-lbl">kg este mes</div></div>' +
-            '<div class="hstat"><div class="hstat-val">' + idx + '</div><div class="hstat-lbl">kg/comensal</div></div>' +
+            '<div class="hstat"><div class="hstat-val">' + idx + '</div><div class="hstat-lbl">g/comensal</div></div>' +
             '<div class="hstat"><div class="hstat-val">' + todayCnt + '</div><div class="hstat-lbl">registros hoy</div></div>';
     }
 
     // ── Dashboard ─────────────────────────────────────────────
     function renderDashboard() {
-        document.getElementById('dashMonthLabel').textContent = monthLabel(dashMonth);
+        document.getElementById('dashMonthLabel').textContent  = monthLabel(dashMonth);
+        document.getElementById('indexMonthLabel').textContent = monthLabel(dashMonth);
 
         const mr    = mRecs(dashMonth);
         const total = sumKg(mr);
         const tc    = comT(dashMonth);
-        const idx   = tc > 0 ? (total / tc * 1000).toFixed(2) : '—';
+        const idxKg = tc > 0 ? (total / tc) : null;
+        const idx   = idxKg !== null ? (idxKg * 1000).toFixed(1) : '—';
         const prev  = sumKg(mRecs(shift(dashMonth, -1)));
         let trendHtml = '';
         if (prev > 0) {
@@ -1177,11 +1440,13 @@ const APP = (() => {
 
         document.getElementById('kpiGrid').innerHTML =
             '<div class="kpi-card"><div class="kpi-label">Total Desperdicio</div><div class="kpi-value">' + total.toFixed(1) + '</div><div class="kpi-unit">kg este mes</div>' + trendHtml + '</div>' +
-            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice g / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">g por comensal atendido</div></div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice g / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">gramos por comensal atendido</div></div>' +
             '<div class="kpi-card" style="border-top-color:var(--hilton-teal)"><div class="kpi-label">Comensales Registrados</div><div class="kpi-value">' + (tc > 0 ? tc.toLocaleString('es') : '—') + '</div><div class="kpi-unit">este mes</div>' + (tc === 0 ? '<div class="kpi-badge badge-info">Ingresar en Comensales</div>' : '') + '</div>' +
             '<div class="kpi-card" style="border-top-color:var(--hilton-blue-tint)"><div class="kpi-label">Mayor Desperdicio</div><div class="kpi-value" style="font-size:16px;font-weight:600;line-height:1.3;">' + (maxS ? maxS.short : '—') + '</div><div class="kpi-unit">' + (maxS ? maxKg.toFixed(1) + ' kg' : 'Sin datos') + '</div></div>';
 
+        buildChartSector(dashMonth);
         buildChartTrend(dashMonth);
+        buildIndexTable(dashMonth);
     }
 
     function buildChartSector(ym) {
@@ -1237,7 +1502,7 @@ const APP = (() => {
         SECTORS.forEach((s, i) => {
             const kg  = sumKg(sRecs(s.id, ym));
             const com = comS(s.id, ym);
-            const idx = com > 0 ? (kg / com * 1000).toFixed(2) : '—';
+            const idx = com > 0 ? ((kg / com) * 1000).toFixed(1) + ' g' : '—';
             const pct = tot > 0 ? (kg / tot * 100) : 0;
             html += '<tr><td><span class="s-badge ' + s.cls + '">' + s.short + '</span></td>' +
                 '<td>' + kg.toFixed(2) + ' kg</td>' +
@@ -1246,36 +1511,228 @@ const APP = (() => {
                 '<td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + s.color + ';"></div></div><span class="bar-pct">' + pct.toFixed(1) + '%</span></div></td></tr>';
         });
         document.getElementById('indexTbody').innerHTML = html;
-        const totalIdx = totC > 0 ? (tot / totC * 1000).toFixed(2) : '—';
+        const totalIdx = totC > 0 ? ((tot / totC) * 1000).toFixed(1) + ' g' : '—';
         document.getElementById('indexTfoot').innerHTML =
             '<tr><td>TOTAL</td><td>' + tot.toFixed(2) + ' kg</td><td>' + (totC > 0 ? totC.toLocaleString('es') : '—') + '</td><td>' + totalIdx + '</td><td>100%</td></tr>';
     }
 
+    // ── Edit modal ────────────────────────────────────────────
+    function initEditSectorSelect() {
+        const sel = document.getElementById('emSector');
+        if (sel.options.length <= 1) {
+            SECTORS.forEach(s => sel.add(new Option(s.name, s.id)));
+        }
+        sel.addEventListener('change', function() {
+            document.getElementById('emSubFg').classList.toggle('fg-hidden', this.value !== 'hacienda');
+        });
+    }
+
+    function openEditModal(id) {
+        const r = records.find(r => r.id === id);
+        if (!r) return;
+        initEditSectorSelect();
+        document.getElementById('emId').value          = id;
+        document.getElementById('emFecha').value       = r.date        || '';
+        document.getElementById('emHorario').value     = r.time        || '';
+        document.getElementById('emPeso').value        = r.weight      || '';
+        document.getElementById('emResponsable').value = r.responsible || '';
+        document.getElementById('emSector').value      = r.sector      || '';
+        const subFg = document.getElementById('emSubFg');
+        subFg.classList.toggle('fg-hidden', r.sector !== 'hacienda');
+        if (r.sector === 'hacienda' && r.subsector) {
+            document.getElementById('emSub').value = r.subsector;
+        }
+        // Show existing photos (read-only)
+        const wrap = document.getElementById('emPhotosWrap');
+        const grid = document.getElementById('emPhotosGrid');
+        if (r.photos && r.photos.length) {
+            grid.innerHTML = r.photos.map((url, i) =>
+                '<div class="photo-thumb" style="cursor:pointer;" onclick="APP.openPhotoModal(' +
+                JSON.stringify(r.photos).replace(/"/g,'&quot;') + ',' + i + ')">' +
+                '<img src="' + url + '" alt="foto"></div>'
+            ).join('');
+            wrap.style.display = 'block';
+        } else {
+            wrap.style.display = 'none';
+        }
+        document.getElementById('emOk').style.display  = 'none';
+        document.getElementById('emErr').style.display = 'none';
+        document.getElementById('editModal').classList.add('open');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.remove('open');
+    }
+
+    async function saveEdit() {
+        const id          = document.getElementById('emId').value;
+        const fecha       = document.getElementById('emFecha').value;
+        const horario     = document.getElementById('emHorario').value;
+        const sector      = document.getElementById('emSector').value;
+        const peso        = parseFloat(document.getElementById('emPeso').value);
+        const responsable = document.getElementById('emResponsable').value.trim();
+        let sub = null;
+        if (sector === 'hacienda') sub = document.getElementById('emSub').value;
+        if (!id || !fecha || !sector || !peso || peso <= 0) {
+            document.getElementById('emErr').style.display = 'block';
+            setTimeout(() => document.getElementById('emErr').style.display = 'none', 3000);
+            return;
+        }
+        const updates = {
+            date:        fecha,
+            time:        horario     || null,
+            sector,
+            subsector:   sub,
+            weight:      peso,
+            responsible: responsable || null,
+            updatedAt:   new Date().toISOString()
+        };
+        try {
+            await dbUpdateRecord(id, updates);
+            document.getElementById('emOk').style.display = 'block';
+            setTimeout(() => { closeEditModal(); }, 1200);
+            toast('✓ Registro actualizado');
+            if (!db) { renderTodayList(); renderHistorial(); }
+        } catch(e) {
+            console.error(e);
+            document.getElementById('emErr').style.display = 'block';
+        }
+    }
+
+    // ── Foto helpers ──────────────────────────────────────────
+    function onPhotosSelected(input) {
+        const newFiles = Array.from(input.files);
+        selectedFiles = selectedFiles.concat(newFiles);
+        renderPhotoPreview();
+        // Reset input so same file can be re-added after removal
+        input.value = '';
+    }
+
+    function renderPhotoPreview() {
+        const grid = document.getElementById('photoPreviewGrid');
+        if (!grid) return;
+        if (!selectedFiles.length) { grid.innerHTML = ''; return; }
+        grid.innerHTML = selectedFiles.map((f, i) => {
+            const url = URL.createObjectURL(f);
+            return '<div class="photo-thumb" id="pt_' + i + '">' +
+                   '<img src="' + url + '" alt="foto">' +
+                   '<button class="photo-thumb-del" onclick="APP.removePhoto(' + i + ')">✕</button>' +
+                   '</div>';
+        }).join('');
+    }
+
+    function removePhoto(idx) {
+        selectedFiles.splice(idx, 1);
+        renderPhotoPreview();
+    }
+
+    async function uploadPhotos(recordId) {
+        if (!selectedFiles.length) return [];
+        const urls = [];
+        if (storage) {
+            // Firebase Storage
+            for (const file of selectedFiles) {
+                const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const ref = storage.ref('photos/' + recordId + '/' + safeName);
+                await ref.put(file);
+                urls.push(await ref.getDownloadURL());
+            }
+        } else {
+            // Fallback: base64 in localStorage (limited)
+            for (const file of selectedFiles) {
+                const b64 = await fileToBase64(file);
+                urls.push(b64);
+            }
+        }
+        return urls;
+    }
+
+    function fileToBase64(file) {
+        return new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload  = e => res(e.target.result);
+            reader.onerror = rej;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ── Photo modal ───────────────────────────────────────────
+    function openPhotoModal(photos, startIdx) {
+        pmPhotos = photos;
+        pmIndex  = startIdx || 0;
+        pmRender();
+        document.getElementById('photoModal').classList.add('open');
+    }
+
+    function closePhotoModal() {
+        document.getElementById('photoModal').classList.remove('open');
+    }
+
+    function pmNav(dir) {
+        pmIndex = (pmIndex + dir + pmPhotos.length) % pmPhotos.length;
+        pmRender();
+    }
+
+    function pmRender() {
+        document.getElementById('pmImg').src = pmPhotos[pmIndex];
+        document.getElementById('pmCounter').textContent = (pmIndex + 1) + ' / ' + pmPhotos.length;
+        const navEl = document.querySelector('#photoModal .pm-nav');
+        if (navEl) navEl.style.display = pmPhotos.length > 1 ? 'flex' : 'none';
+    }
+
     // ── Registro ──────────────────────────────────────────────
     async function saveRecord() {
-        const fecha  = document.getElementById('rFecha').value;
-        const sector = document.getElementById('rSector').value;
-        const peso   = parseFloat(document.getElementById('rPeso').value);
+        const fecha       = document.getElementById('rFecha').value;
+        const horario     = document.getElementById('rHorario').value;
+        const sector      = document.getElementById('rSector').value;
+        const peso        = parseFloat(document.getElementById('rPeso').value);
+        const responsable = document.getElementById('rResponsable').value.trim();
         let sub = null;
         if (sector === 'hacienda') sub = document.getElementById('rSub').value;
         if (!fecha || !sector || !peso || peso <= 0) { flash('fmErr'); return; }
-        const record = { date: fecha, sector, subsector: sub, weight: peso, createdAt: new Date().toISOString() };
+
+        const record = {
+            date: fecha,
+            sector,
+            subsector:   sub,
+            weight:      peso,
+            time:        horario     || null,
+            responsible: responsable || null,
+            createdAt:   new Date().toISOString()
+        };
+
         try {
-            await dbAddRecord(record);
+            const id = await dbAddRecord(record);
+
+            // Upload photos and attach URLs
+            if (selectedFiles.length) {
+                const photoUrls = await uploadPhotos(id);
+                if (db && photoUrls.length) {
+                    await db.collection('records').doc(id).update({ photos: photoUrls });
+                } else if (!db && photoUrls.length) {
+                    const r = records.find(r => r.id === id);
+                    if (r) { r.photos = photoUrls; localStorage.setItem('fw3_records', JSON.stringify(records)); }
+                }
+            }
+
             flash('fmOk');
             clearForm();
             toast('✓ ' + peso.toFixed(2) + ' kg — ' + S(sector).short);
-            if (!db) { renderTodayList(); renderHomeStats(); } // if no Firebase, update manually
+            if (!db) { renderTodayList(); renderHomeStats(); }
         } catch(e) {
             console.error(e);
-            flash('fmSaveErr');
+            flash('fmErr');
         }
     }
 
     function clearForm() {
-        document.getElementById('rPeso').value   = '';
-        document.getElementById('rSector').value = '';
+        document.getElementById('rPeso').value        = '';
+        document.getElementById('rSector').value      = '';
+        document.getElementById('rHorario').value     = '';
+        document.getElementById('rResponsable').value = '';
         document.getElementById('rSubFg').classList.add('fg-hidden');
+        selectedFiles = [];
+        renderPhotoPreview();
     }
 
     async function deleteRecord(id) {
@@ -1294,14 +1751,25 @@ const APP = (() => {
             el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Sin registros para hoy</p></div>';
             return;
         }
-        let h = '<div class="tbl-wrap"><table><thead><tr><th>Sector</th><th>Subdivisión</th><th>kg</th><th></th></tr></thead><tbody>';
+        let h = '<div class="tbl-wrap"><table><thead><tr><th>Hora</th><th>Sector</th><th>Subdivisión</th><th>kg</th><th>Responsable</th><th>Fotos</th><th></th></tr></thead><tbody>';
         arr.forEach(r => {
             const s = S(r.sector), i = SI(r.sector);
             if (!s) return;
-            h += '<tr><td><span class="s-badge s' + i + '">' + s.short + '</span></td><td>' +
-                (r.subsector ? (r.subsector[0].toUpperCase() + r.subsector.slice(1)) : '—') +
-                '</td><td><strong>' + parseFloat(r.weight).toFixed(2) + ' kg</strong></td>' +
-                '<td><button class="btn btn-del" onclick="APP.deleteRecord(\'' + r.id + '\')">✕</button></td></tr>';
+            const photoCell = (r.photos && r.photos.length)
+                ? '<a class="photo-badge" onclick="APP.openPhotoModal(' + JSON.stringify(r.photos).replace(/"/g,'&quot;') + ',0)">📷 ' + r.photos.length + '</a>'
+                : '<span style="color:#ccc;font-size:11px;">—</span>';
+            h += '<tr>' +
+                '<td style="font-size:12px;color:var(--text-light);">' + (r.time || '—') + '</td>' +
+                '<td><span class="s-badge s' + i + '">' + s.short + '</span></td>' +
+                '<td>' + (r.subsector ? (r.subsector[0].toUpperCase() + r.subsector.slice(1)) : '—') + '</td>' +
+                '<td><strong>' + parseFloat(r.weight).toFixed(2) + ' kg</strong></td>' +
+                '<td style="font-size:12px;">' + (r.responsible || '—') + '</td>' +
+                '<td>' + photoCell + '</td>' +
+                '<td><div class="action-cell">' +
+                '<button class="btn btn-edit" onclick="APP.openEditModal(\'' + r.id + '\')">✏️</button>' +
+                '<button class="btn btn-del"  onclick="APP.deleteRecord(\'' + r.id + '\')">✕</button>' +
+                '</div></td>' +
+                '</tr>';
         });
         el.innerHTML = h + '</tbody></table></div>';
     }
@@ -1322,10 +1790,22 @@ const APP = (() => {
         arr.forEach(r => {
             const s = S(r.sector); if (!s) return;
             const i = SI(r.sector);
-            h += '<tr><td>' + fmtDate(r.date) + '</td><td><span class="s-badge s' + i + '">' + s.short + '</span></td><td>' +
-                (r.subsector ? (r.subsector[0].toUpperCase() + r.subsector.slice(1)) : '—') +
-                '</td><td><strong>' + parseFloat(r.weight).toFixed(2) + ' kg</strong></td>' +
-                '<td><button class="btn btn-del" onclick="APP.deleteRecord(\'' + r.id + '\')">✕</button></td></tr>';
+            const photoCell = (r.photos && r.photos.length)
+                ? '<a class="photo-badge" onclick="APP.openPhotoModal(' + JSON.stringify(r.photos).replace(/"/g,'&quot;') + ',0)">📷 ' + r.photos.length + '</a>'
+                : '<span style="color:#ccc;font-size:11px;">—</span>';
+            h += '<tr>' +
+                '<td>' + fmtDate(r.date) + '</td>' +
+                '<td style="font-size:12px;color:var(--text-light);">' + (r.time || '—') + '</td>' +
+                '<td><span class="s-badge s' + i + '">' + s.short + '</span></td>' +
+                '<td>' + (r.subsector ? (r.subsector[0].toUpperCase() + r.subsector.slice(1)) : '—') + '</td>' +
+                '<td><strong>' + parseFloat(r.weight).toFixed(2) + ' kg</strong></td>' +
+                '<td style="font-size:12px;">' + (r.responsible || '—') + '</td>' +
+                '<td>' + photoCell + '</td>' +
+                '<td><div class="action-cell">' +
+                '<button class="btn btn-edit" onclick="APP.openEditModal(\'' + r.id + '\')">✏️</button>' +
+                '<button class="btn btn-del"  onclick="APP.deleteRecord(\'' + r.id + '\')">✕</button>' +
+                '</div></td>' +
+                '</tr>';
         });
         tb.innerHTML = h;
     }
@@ -1337,8 +1817,8 @@ const APP = (() => {
         if (fm) arr = arr.filter(r => r.date && r.date.startsWith(fm));
         if (fs) arr = arr.filter(r => r.sector === fs);
         arr.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const rows = [['Fecha','Sector','Subsector','Peso (kg)'],
-                      ...arr.map(r => [r.date, S(r.sector) ? S(r.sector).name : r.sector, r.subsector || '', r.weight])];
+        const rows = [['Fecha','Hora','Sector','Subsector','Peso (kg)','Responsable','Fotos'],
+                      ...arr.map(r => [r.date, r.time || '', S(r.sector) ? S(r.sector).name : r.sector, r.subsector || '', r.weight, r.responsible || '', (r.photos && r.photos.length) ? r.photos.length + ' foto(s)' : ''])];
         const blob = new Blob(['﻿' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
         const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'food-waste-' + (fm || 'total') + '.csv' });
         a.click(); URL.revokeObjectURL(a.href);
@@ -1349,19 +1829,53 @@ const APP = (() => {
     async function renderComensales() {
         document.getElementById('comMonthLabel').textContent = monthLabel(comMonth);
         await dbLoadComensales(comMonth);
-        const total = (comensales[comMonth] || {}).total || '';
-        document.getElementById('comTotal').value = total;
+        const c     = comensales[comMonth] || {};
+        const total = comT(comMonth);
+
+        // Pre-fill input
+        const inp = document.getElementById('comTotal');
+        if (inp) inp.value = total > 0 ? total : '';
+
+        // Status indicator
+        const statusEl = document.getElementById('comStatus');
+        if (statusEl) {
+            const savedAt  = c._savedAt ? new Date(c._savedAt) : null;
+            const savedStr = savedAt
+                ? savedAt.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }) +
+                  ' ' + savedAt.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' })
+                : null;
+            if (total > 0 && savedStr) {
+                statusEl.innerHTML = '<div class="com-status ok"><span class="com-status-icon">✓</span>' +
+                    '<span>Guardado para <strong>' + monthLabel(comMonth) + '</strong> — ' + savedStr + '</span>' +
+                    '<span class="com-total-badge">' + total.toLocaleString('es') + ' comensales</span></div>';
+            } else {
+                statusEl.innerHTML = '<div class="com-status warn"><span class="com-status-icon">⚠</span>' +
+                    '<span>Sin datos para <strong>' + monthLabel(comMonth) + '</strong>. Ingresá el total y guardá.</span></div>';
+            }
+        }
     }
 
     async function saveComensales() {
-        const el = document.getElementById('comTotal');
-        const total = el ? (parseInt(el.value) || 0) : 0;
-        await dbSaveComensales(comMonth, { total });
-        toast('✓ Comensales guardados — ' + monthLabel(comMonth));
+        const inp   = document.getElementById('comTotal');
+        const total = parseInt(inp ? inp.value : 0) || 0;
+        const data  = { total, _savedAt: new Date().toISOString() };
+        await dbSaveComensales(comMonth, data);
+        toast('✓ ' + total.toLocaleString('es') + ' comensales guardados — ' + monthLabel(comMonth));
+        renderComensales();
     }
 
-    return { launch, goSplash, toggleMode, goTab, saveRecord, clearForm, deleteRecord, saveComensales, exportCSV };
+    return { launch, goSplash, toggleMode, goTab, saveRecord, clearForm, deleteRecord, saveComensales, exportCSV,
+             onPhotosSelected, removePhoto, openPhotoModal, closePhotoModal, pmNav,
+             openEditModal, closeEditModal, saveEdit };
 })();
+
+// Close modals on Escape
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        APP.closePhotoModal();
+        APP.closeEditModal();
+    }
+});
 
 // Auto-launch if previously visited
 (function() {
