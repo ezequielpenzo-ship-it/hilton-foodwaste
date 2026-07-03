@@ -497,6 +497,7 @@
         .s2 { background: #e6f4f0; color: var(--hilton-teal-shade); }
         .s3 { background: #ecedf3; color: var(--hilton-blue-tint); }
         .s4 { background: #e6eef2; color: var(--hilton-turquoise); }
+
         /* ─── FILTERS ─── */
         .filter-row {
             display: flex; gap: 10px; flex-wrap: wrap;
@@ -760,7 +761,7 @@
         </div>
     </div>
 
-    <div class="splash-footer">© Hilton · Food Waste Manager v1.0 · build 20260703-3</div>
+    <div class="splash-footer">© Hilton · Food Waste Manager v1.0 · build NOSPINNER-v5</div>
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -2068,4 +2069,11 @@ document.addEventListener('keydown', e => {
     if (saved) {
         document.getElementById('splash').classList.add('hidden');
         document.getElementById('app').classList.add('visible');
-        document.body.classList.add('
+        document.body.classList.add('app-mode');
+        document.body.classList.toggle('mobile-mode', saved === 'mobile');
+        setTimeout(() => APP.launch(saved), 0);
+    }
+})();
+</script>
+</body>
+</html>
