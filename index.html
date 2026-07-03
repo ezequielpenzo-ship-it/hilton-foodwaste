@@ -1431,23 +1431,47 @@ const APP = (() => {
 
         if (FB_CONFIGURED && dbReady) {
             showLoading(true);
-            // First snapshot will hide loading. Race against a hard timeout so a
-            // stalled connection (common on some hotel wifi / mobile networks)
-            // can never leave the spinner stuck forever.
-            const probe   = db.collection('records').limit(1).get();
-            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000));
-            Promise.race([probe, timeout])
-              .then(() => { showLoading(false); startRealtimeSync(); })
-              .catch(() => {
-                  showLoading(false);
-                  toast('⚠ Sin conexión — datos en caché');
-                  // Show cached local data immediately; realtime sync will
-                  // pick up as soon as connectivity actually comes back.
-                  records    = JSON.parse(localStorage.getItem('fw3_records')    || '[]');
-                  comensales = JSON.parse(localStorage.getItem('fw3_comensales') || '{}');
-                  refreshCurrentView();
-                  startRealtimeSync();
-              });
+
+            let settled = false;
+            const fallbackToLocal = (msg) => {
+                if (settled) return;
+                settled = true;
+                showLoading(false);
+                if (msg) toast(msg);
+                // Show cached local data immediately; realtime sync (if it ever
+                // connects) will refresh the view again once it comes through.
+                records    = JSON.parse(localStorage.getItem('fw3_records')    || '[]');
+                comensales = JSON.parse(localStorage.getItem('fw3_comensales') || '{}');
+                refreshCurrentView();
+                try { startRealtimeSync(); } catch(e) { console.error(e); }
+            };
+
+            // Unconditional watchdog: no matter what happens below (network
+            // hang, thrown exception, SDK bug), the spinner is guaranteed to
+            // clear within 8s. This is the last line of defense against the
+            // "infinite spinner" failure mode on flaky mobile/hotel networks.
+            const watchdog = setTimeout(() => fallbackToLocal('⚠ Sin conexión — datos en caché'), 8000);
+
+            try {
+                const probe = db.collection('records').limit(1).get();
+                probe.then(() => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(watchdog);
+                    showLoading(false);
+                    startRealtimeSync();
+                }).catch((e) => {
+                    console.error('Firestore probe failed:', e);
+                    clearTimeout(watchdog);
+                    fallbackToLocal('⚠ Sin conexión — datos en caché');
+                });
+            } catch (e) {
+                // Synchronous throw (e.g. broken persistence layer / IndexedDB
+                // unavailable in private browsing) — don't leave the spinner up.
+                console.error('Firestore call threw synchronously:', e);
+                clearTimeout(watchdog);
+                fallbackToLocal('⚠ Sin conexión — datos en caché');
+            }
         }
     }
 
@@ -2044,34 +2068,3 @@ const APP = (() => {
         await dbSaveComensales(comMonth, { closedTotal, closedAt: new Date().toISOString() });
         toast('✓ Mes cerrado — ' + monthLabel(comMonth) + ' · ' + closedTotal.toLocaleString('es') + ' comensales');
         renderComensales();
-        refreshCurrentView();
-    }
-
-    return { launch, goSplash, toggleMode, goTab, saveRecord, clearForm, deleteRecord,
-             saveComensalesForecast, saveComensalesActual, saveComensalesClosed, exportCSV,
-             onPhotosSelected, removePhoto, openPhotoModal, closePhotoModal, pmNav,
-             openEditModal, closeEditModal, saveEdit };
-})();
-
-// Close modals on Escape
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        APP.closePhotoModal();
-        APP.closeEditModal();
-    }
-});
-
-// Auto-launch if previously visited
-(function() {
-    const saved = localStorage.getItem('fw3_mode');
-    if (saved) {
-        document.getElementById('splash').classList.add('hidden');
-        document.getElementById('app').classList.add('visible');
-        document.body.classList.add('app-mode');
-        document.body.classList.toggle('mobile-mode', saved === 'mobile');
-        setTimeout(() => APP.launch(saved), 0);
-    }
-})();
-</script>
-</body>
-</html>
