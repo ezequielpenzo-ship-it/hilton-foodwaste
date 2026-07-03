@@ -760,7 +760,7 @@
         </div>
     </div>
 
-    <div class="splash-footer">© Hilton · Food Waste Manager v1.0</div>
+    <div class="splash-footer">© Hilton · Food Waste Manager v1.0 · build 20260703-3</div>
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -1107,6 +1107,7 @@
         </circle>
     </svg>
     <span style="color:white;font-family:'Segoe UI',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Conectando...</span>
+    <button id="skipLoadingBtn" onclick="APP.skipLoading()" style="display:none;margin-top:10px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.4);color:white;padding:8px 18px;border-radius:4px;font-family:'Segoe UI',sans-serif;font-size:12px;letter-spacing:0.5px;cursor:pointer;">Continuar sin conexión</button>
 </div>
 
 <!-- Sync status pill in header area -->
@@ -1258,6 +1259,7 @@ const APP = (() => {
     let selectedFiles = [];   // files queued for photo upload
     let pmPhotos      = [];   // photos currently open in modal
     let pmIndex       = 0;
+    let currentFallback = null; // active launch() fallback fn, callable from the manual "skip" button
 
     // ── Helpers ─────────────────────────────────────────────
     function todayStr() { return new Date().toISOString().split('T')[0]; }
@@ -1433,9 +1435,12 @@ const APP = (() => {
             showLoading(true);
 
             let settled = false;
+            const skipBtn = document.getElementById('skipLoadingBtn');
             const fallbackToLocal = (msg) => {
                 if (settled) return;
                 settled = true;
+                currentFallback = null;
+                if (skipBtn) skipBtn.style.display = 'none';
                 showLoading(false);
                 if (msg) toast(msg);
                 // Show cached local data immediately; realtime sync (if it ever
@@ -1445,6 +1450,11 @@ const APP = (() => {
                 refreshCurrentView();
                 try { startRealtimeSync(); } catch(e) { console.error(e); }
             };
+            currentFallback = fallbackToLocal;
+
+            // Manual escape hatch: if after 3s we're still waiting, let the
+            // person bypass it themselves instead of staring at a spinner.
+            if (skipBtn) setTimeout(() => { if (!settled) skipBtn.style.display = 'inline-block'; }, 3000);
 
             // Unconditional watchdog: no matter what happens below (network
             // hang, thrown exception, SDK bug), the spinner is guaranteed to
@@ -1457,6 +1467,8 @@ const APP = (() => {
                 probe.then(() => {
                     if (settled) return;
                     settled = true;
+                    currentFallback = null;
+                    if (skipBtn) skipBtn.style.display = 'none';
                     clearTimeout(watchdog);
                     showLoading(false);
                     startRealtimeSync();
@@ -1479,6 +1491,10 @@ const APP = (() => {
         if (unsubscribe) { unsubscribe(); unsubscribe = null; }
         document.getElementById('app').classList.remove('visible');
         document.getElementById('splash').classList.remove('hidden');
+    }
+
+    function skipLoading() {
+        if (currentFallback) currentFallback('Modo local activado');
     }
 
     function toggleMode() {
@@ -2047,24 +2063,4 @@ const APP = (() => {
 
     async function saveComensalesForecast() {
         const forecast      = parseInt(document.getElementById('comForecastTotal').value) || 0;
-        const forecastWaste = parseFloat(document.getElementById('comForecastWaste').value) || 0;
-        await dbSaveComensales(comMonth, { forecast, forecastWaste, _forecastSavedAt: new Date().toISOString() });
-        toast('✓ Forecast guardado — ' + monthLabel(comMonth));
-        renderComensales();
-        refreshCurrentView();
-    }
-
-    async function saveComensalesActual() {
-        const actualDate  = document.getElementById('comActualDate').value || todayStr();
-        const actualTotal = parseInt(document.getElementById('comActualTotal').value) || 0;
-        await dbSaveComensales(comMonth, { actualDate, actualTotal, _actualSavedAt: new Date().toISOString() });
-        toast('✓ Avance a la fecha guardado — ' + monthLabel(comMonth));
-        renderComensales();
-        refreshCurrentView();
-    }
-
-    async function saveComensalesClosed() {
-        const closedTotal = parseInt(document.getElementById('comClosedTotal').value) || 0;
-        await dbSaveComensales(comMonth, { closedTotal, closedAt: new Date().toISOString() });
-        toast('✓ Mes cerrado — ' + monthLabel(comMonth) + ' · ' + closedTotal.toLocaleString('es') + ' comensales');
-        renderComensales();
+        const forecastWaste = parseFloat(document.getE
