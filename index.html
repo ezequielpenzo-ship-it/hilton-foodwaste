@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food Waste Manager · Hilton</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <!-- Firebase SDK (compat v10) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <!-- Chart.js / Firebase SDK moved to end of <body> so the splash screen
+         always paints immediately, even if these CDN resources load slowly
+         or hang on restrictive mobile/hotel networks. See bottom of file. -->
     <style>
         /* ══════════════════════════════════════════
            HILTON BRAND PALETTE
@@ -439,6 +437,18 @@
         }
         .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
+        .com-compare {
+            border: 1px solid var(--border); border-radius: var(--radius);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .com-cmp-row {
+            display: flex; justify-content: space-between; gap: 12px;
+            padding: 10px 14px; font-size: 12.5px;
+        }
+        .com-cmp-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+        .com-cmp-row span:first-child { color: var(--text-light); font-weight: 600; }
+        .com-cmp-row span:last-child  { font-weight: 700; text-align: right; }
+
         /* ─── MESSAGES ─── */
         .form-msg {
             padding: 10px 16px; border-radius: var(--radius);
@@ -487,7 +497,6 @@
         .s2 { background: #e6f4f0; color: var(--hilton-teal-shade); }
         .s3 { background: #ecedf3; color: var(--hilton-blue-tint); }
         .s4 { background: #e6eef2; color: var(--hilton-turquoise); }
-
         /* ─── FILTERS ─── */
         .filter-row {
             display: flex; gap: 10px; flex-wrap: wrap;
@@ -1018,7 +1027,7 @@
             <div class="card">
                 <div class="card-title">Comensales del Mes</div>
                 <p style="font-size:12px;color:var(--text-light);margin-bottom:20px;line-height:1.6;">
-                    Ingresá el total de comensales atendidos en el mes. Se usa para calcular el índice de desperdicio (kg/comensal).
+                    Cargá el forecast, el avance a la fecha y el cierre definitivo. El índice de desperdicio usa el dato más real disponible: cierre si el mes ya cerró, si no el avance a la fecha.
                 </p>
                 <div class="month-nav">
                     <button class="mnav-btn" id="comPrev">◀</button>
@@ -1026,14 +1035,62 @@
                     <button class="mnav-btn" id="comNext">▶</button>
                 </div>
                 <div id="comStatus"></div>
-                <div style="margin: 20px 0; max-width: 320px;">
+                <div id="comCompare"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📈 Forecast del Mes</div>
+                <p style="font-size:12px;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+                    Proyección para el mes completo. Sirve de referencia, no se usa para el índice real.
+                </p>
+                <div class="form-grid" style="max-width:520px;">
                     <div class="fg">
-                        <label>Total de comensales *</label>
-                        <input type="number" id="comTotal" min="0" placeholder="0" style="font-size:22px;padding:12px 16px;text-align:right;">
+                        <label>Forecast de comensales</label>
+                        <input type="number" id="comForecastTotal" min="0" placeholder="0">
+                    </div>
+                    <div class="fg">
+                        <label>Forecast de desperdicio (kg)</label>
+                        <input type="number" id="comForecastWaste" min="0" step="0.1" placeholder="0.0">
                     </div>
                 </div>
                 <div class="btn-row">
-                    <button class="btn btn-primary" onclick="APP.saveComensales()">Guardar</button>
+                    <button class="btn btn-secondary" onclick="APP.saveComensalesForecast()">Guardar forecast</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📍 Comensales a la Fecha</div>
+                <p style="font-size:12px;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+                    Dato real, acumulado hasta un día del mes. Se pisa cada vez que cargás uno nuevo — usalo para ver cómo venimos antes de que cierre el mes.
+                </p>
+                <div class="form-grid" style="max-width:520px;">
+                    <div class="fg">
+                        <label>Fecha de corte</label>
+                        <input type="date" id="comActualDate">
+                    </div>
+                    <div class="fg">
+                        <label>Comensales acumulados a esa fecha *</label>
+                        <input type="number" id="comActualTotal" min="0" placeholder="0">
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="APP.saveComensalesActual()">Guardar avance</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">✅ Cierre Definitivo del Mes</div>
+                <p style="font-size:12px;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+                    Cargalo cuando el mes ya cerró y tenés el número final. Pasa a ser el dato que manda para el índice de ese mes.
+                </p>
+                <div style="max-width:320px;">
+                    <div class="fg">
+                        <label>Total de comensales — cierre</label>
+                        <input type="number" id="comClosedTotal" min="0" placeholder="0" style="font-size:22px;padding:12px 16px;text-align:right;">
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="APP.saveComensalesClosed()">Cerrar mes</button>
                 </div>
             </div>
         </div>
@@ -1124,6 +1181,14 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Cargados acá (después del splash) para que la pantalla de inicio
+     pinte siempre al instante, incluso si el CDN tarda o se cuelga
+     en redes de hotel / datos móviles restrictivas. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
 <script>
 // ════════════════════════════════════════════════════════════
 //  FIREBASE CONFIGURATION
@@ -1158,11 +1223,21 @@ const SECTORS = [
 const FB_CONFIGURED = !Object.values(FIREBASE_CONFIG).some(v => v === 'REEMPLAZAR');
 let db      = null;
 let storage = null;
+let dbReady = false; // true only if Firebase actually initialized OK — never trust FB_CONFIGURED alone
 if (FB_CONFIGURED) {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db = firebase.firestore();
-    db.enablePersistence().catch(() => {});
-    try { storage = firebase.storage(); } catch(e) {}
+    try {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        db = firebase.firestore();
+        db.enablePersistence().catch(() => {});
+        try { storage = firebase.storage(); } catch(e) {}
+        dbReady = true;
+    } catch (e) {
+        // Firebase SDK failed to load/init (blocked CDN, no connectivity, etc.)
+        // Fall back to local-only mode instead of leaving the app half-broken.
+        console.error('Firebase init failed, falling back to localStorage:', e);
+        db = null;
+        dbReady = false;
+    }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1212,12 +1287,33 @@ const APP = (() => {
     function sRecs(sid, ym) { return records.filter(r => r.sector === sid && r.date && r.date.startsWith(ym)); }
     function sumKg(arr)     { return arr.reduce((a, r) => a + parseFloat(r.weight || 0), 0); }
     function comS(sid, ym)  { return 0; } // sector-level not used; single monthly total
+
+    // Real comensales used for the waste index: cierre > a la fecha > legacy total.
     function comT(ym)       {
         const c = comensales[ym] || {};
-        // New format: single total field
-        if (c.total !== undefined) return parseInt(c.total) || 0;
+        if (c.closedTotal)          return parseInt(c.closedTotal) || 0;
+        if (c.actualTotal)          return parseInt(c.actualTotal) || 0;
+        if (c.total !== undefined)  return parseInt(c.total) || 0; // legacy single-field format
         // Legacy: sum of sector fields (backward compat)
         return SECTORS.reduce((a, s) => a + (parseInt(c[s.id]) || 0), 0);
+    }
+
+    // Which figure is currently driving comT(): 'closed' | 'actual' | 'legacy' | 'none'
+    function comSource(ym) {
+        const c = comensales[ym] || {};
+        if (c.closedTotal)         return 'closed';
+        if (c.actualTotal)         return 'actual';
+        if (c.total !== undefined) return 'legacy';
+        return 'none';
+    }
+
+    // Forecast índice (g/comensal) — planned reference, independent of real data.
+    function comForecastIdx(ym) {
+        const c = comensales[ym] || {};
+        const fc = parseInt(c.forecast) || 0;
+        const fw = parseFloat(c.forecastWaste) || 0;
+        if (fc <= 0 || fw <= 0) return null;
+        return (fw / fc) * 1000;
     }
 
     function toast(msg) {
@@ -1295,9 +1391,11 @@ const APP = (() => {
     }
 
     async function dbSaveComensales(month, data) {
-        comensales[month] = data;
+        // Merge into whatever is already stored for that month — each section
+        // (forecast / a la fecha / cierre) saves independently.
+        comensales[month] = Object.assign({}, comensales[month] || {}, data);
         if (db) {
-            await db.collection('comensales').doc(month).set(data);
+            await db.collection('comensales').doc(month).set(data, { merge: true });
         } else {
             localStorage.setItem('fw3_comensales', JSON.stringify(comensales));
         }
@@ -1322,8 +1420,8 @@ const APP = (() => {
         document.getElementById('app').classList.add('visible');
         document.body.classList.add('app-mode');
 
-        if (!FB_CONFIGURED) {
-            document.getElementById('setupBanner').style.display = 'block';
+        if (!FB_CONFIGURED || !dbReady) {
+            if (!FB_CONFIGURED) document.getElementById('setupBanner').style.display = 'block';
             // Use localStorage fallback
             records    = JSON.parse(localStorage.getItem('fw3_records')    || '[]');
             comensales = JSON.parse(localStorage.getItem('fw3_comensales') || '{}');
@@ -1331,12 +1429,25 @@ const APP = (() => {
 
         initApp();
 
-        if (FB_CONFIGURED) {
+        if (FB_CONFIGURED && dbReady) {
             showLoading(true);
-            // First snapshot will hide loading
-            db.collection('records').limit(1).get()
+            // First snapshot will hide loading. Race against a hard timeout so a
+            // stalled connection (common on some hotel wifi / mobile networks)
+            // can never leave the spinner stuck forever.
+            const probe   = db.collection('records').limit(1).get();
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000));
+            Promise.race([probe, timeout])
               .then(() => { showLoading(false); startRealtimeSync(); })
-              .catch(() => { showLoading(false); toast('⚠ Sin conexión — datos en caché'); startRealtimeSync(); });
+              .catch(() => {
+                  showLoading(false);
+                  toast('⚠ Sin conexión — datos en caché');
+                  // Show cached local data immediately; realtime sync will
+                  // pick up as soon as connectivity actually comes back.
+                  records    = JSON.parse(localStorage.getItem('fw3_records')    || '[]');
+                  comensales = JSON.parse(localStorage.getItem('fw3_comensales') || '{}');
+                  refreshCurrentView();
+                  startRealtimeSync();
+              });
         }
     }
 
@@ -1425,6 +1536,7 @@ const APP = (() => {
         const mr    = mRecs(dashMonth);
         const total = sumKg(mr);
         const tc    = comT(dashMonth);
+        const src   = comSource(dashMonth);
         const idxKg = tc > 0 ? (total / tc) : null;
         const idx   = idxKg !== null ? (idxKg * 1000).toFixed(1) : '—';
         const prev  = sumKg(mRecs(shift(dashMonth, -1)));
@@ -1438,11 +1550,29 @@ const APP = (() => {
         let maxS = null, maxKg = 0;
         SECTORS.forEach(s => { const k = sumKg(sRecs(s.id, dashMonth)); if (k > maxKg) { maxKg = k; maxS = s; } });
 
+        // Label showing whether the real index is based on cierre / avance a la fecha / sin datos
+        const srcLabel = src === 'closed' ? 'cierre definitivo'
+                        : src === 'actual' ? 'avance a la fecha' + (comensales[dashMonth] && comensales[dashMonth].actualDate ? ' (' + fmtDate(comensales[dashMonth].actualDate) + ')' : '')
+                        : src === 'legacy' ? 'dato cargado'
+                        : 'sin datos reales';
+
+        // Forecast reference index, if a forecast was loaded for this month
+        const fIdx = comForecastIdx(dashMonth);
+        const fc   = comensales[dashMonth] ? (parseInt(comensales[dashMonth].forecast) || 0) : 0;
+        let fIdxDeltaHtml = '';
+        if (fIdx !== null && idxKg !== null) {
+            const deltaPct = ((idxKg * 1000 - fIdx) / fIdx * 100).toFixed(1);
+            const cls   = parseFloat(deltaPct) > 0 ? 'badge-up' : 'badge-down';
+            const arrow = parseFloat(deltaPct) > 0 ? '▲' : '▼';
+            fIdxDeltaHtml = '<div class="kpi-badge ' + cls + '">' + arrow + ' ' + Math.abs(deltaPct) + '% vs forecast</div>';
+        }
+
         document.getElementById('kpiGrid').innerHTML =
             '<div class="kpi-card"><div class="kpi-label">Total Desperdicio</div><div class="kpi-value">' + total.toFixed(1) + '</div><div class="kpi-unit">kg este mes</div>' + trendHtml + '</div>' +
-            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice g / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">gramos por comensal atendido</div></div>' +
-            '<div class="kpi-card" style="border-top-color:var(--hilton-teal)"><div class="kpi-label">Comensales Registrados</div><div class="kpi-value">' + (tc > 0 ? tc.toLocaleString('es') : '—') + '</div><div class="kpi-unit">este mes</div>' + (tc === 0 ? '<div class="kpi-badge badge-info">Ingresar en Comensales</div>' : '') + '</div>' +
-            '<div class="kpi-card" style="border-top-color:var(--hilton-blue-tint)"><div class="kpi-label">Mayor Desperdicio</div><div class="kpi-value" style="font-size:16px;font-weight:600;line-height:1.3;">' + (maxS ? maxS.short : '—') + '</div><div class="kpi-unit">' + (maxS ? maxKg.toFixed(1) + ' kg' : 'Sin datos') + '</div></div>';
+            '<div class="kpi-card" style="border-top-color:var(--hilton-turquoise)"><div class="kpi-label">Índice g / Comensal</div><div class="kpi-value" style="font-size:' + (idx === '—' ? '32' : '26') + 'px;">' + idx + '</div><div class="kpi-unit">' + srcLabel + '</div></div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-teal)"><div class="kpi-label">Comensales Registrados</div><div class="kpi-value">' + (tc > 0 ? tc.toLocaleString('es') : '—') + '</div><div class="kpi-unit">' + (fc > 0 ? 'de ' + fc.toLocaleString('es') + ' forecast' : 'este mes') + '</div>' + (tc === 0 ? '<div class="kpi-badge badge-info">Ingresar en Comensales</div>' : '') + '</div>' +
+            '<div class="kpi-card" style="border-top-color:var(--hilton-blue-tint)"><div class="kpi-label">Mayor Desperdicio</div><div class="kpi-value" style="font-size:16px;font-weight:600;line-height:1.3;">' + (maxS ? maxS.short : '—') + '</div><div class="kpi-unit">' + (maxS ? maxKg.toFixed(1) + ' kg' : 'Sin datos') + '</div></div>' +
+            (fIdx !== null ? '<div class="kpi-card" style="border-top-color:#c9a84c"><div class="kpi-label">Índice Forecast</div><div class="kpi-value" style="font-size:26px;">' + fIdx.toFixed(1) + '</div><div class="kpi-unit">g/comensal planificado</div>' + fIdxDeltaHtml + '</div>' : '');
 
         buildChartSector(dashMonth);
         buildChartTrend(dashMonth);
@@ -1829,42 +1959,96 @@ const APP = (() => {
     async function renderComensales() {
         document.getElementById('comMonthLabel').textContent = monthLabel(comMonth);
         await dbLoadComensales(comMonth);
-        const c     = comensales[comMonth] || {};
-        const total = comT(comMonth);
+        const c = comensales[comMonth] || {};
 
-        // Pre-fill input
-        const inp = document.getElementById('comTotal');
-        if (inp) inp.value = total > 0 ? total : '';
+        // Pre-fill inputs
+        const fT = document.getElementById('comForecastTotal'); if (fT) fT.value = c.forecast      ? c.forecast      : '';
+        const fW = document.getElementById('comForecastWaste'); if (fW) fW.value = c.forecastWaste  ? c.forecastWaste : '';
+        const aD = document.getElementById('comActualDate');    if (aD) aD.value = c.actualDate || todayStr();
+        const aT = document.getElementById('comActualTotal');   if (aT) aT.value = c.actualTotal    ? c.actualTotal   : '';
+        const cT = document.getElementById('comClosedTotal');   if (cT) cT.value = c.closedTotal    ? c.closedTotal   : '';
 
-        // Status indicator
+        const total  = comT(comMonth);
+        const source = comSource(comMonth);
+
+        // Status indicator — shows which figure is currently driving the real index
         const statusEl = document.getElementById('comStatus');
         if (statusEl) {
-            const savedAt  = c._savedAt ? new Date(c._savedAt) : null;
-            const savedStr = savedAt
-                ? savedAt.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }) +
-                  ' ' + savedAt.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' })
-                : null;
-            if (total > 0 && savedStr) {
+            if (source === 'closed') {
                 statusEl.innerHTML = '<div class="com-status ok"><span class="com-status-icon">✓</span>' +
-                    '<span>Guardado para <strong>' + monthLabel(comMonth) + '</strong> — ' + savedStr + '</span>' +
+                    '<span>Mes <strong>cerrado</strong> — ' + monthLabel(comMonth) + '</span>' +
+                    '<span class="com-total-badge">' + total.toLocaleString('es') + ' comensales</span></div>';
+            } else if (source === 'actual') {
+                const dStr = c.actualDate ? fmtDate(c.actualDate) : '';
+                statusEl.innerHTML = '<div class="com-status ok"><span class="com-status-icon">📍</span>' +
+                    '<span>Índice usando avance <strong>a la fecha' + (dStr ? ' ' + dStr : '') + '</strong></span>' +
+                    '<span class="com-total-badge">' + total.toLocaleString('es') + ' comensales</span></div>';
+            } else if (source === 'legacy') {
+                statusEl.innerHTML = '<div class="com-status ok"><span class="com-status-icon">✓</span>' +
+                    '<span>Dato guardado para <strong>' + monthLabel(comMonth) + '</strong></span>' +
                     '<span class="com-total-badge">' + total.toLocaleString('es') + ' comensales</span></div>';
             } else {
                 statusEl.innerHTML = '<div class="com-status warn"><span class="com-status-icon">⚠</span>' +
-                    '<span>Sin datos para <strong>' + monthLabel(comMonth) + '</strong>. Ingresá el total y guardá.</span></div>';
+                    '<span>Sin datos reales para <strong>' + monthLabel(comMonth) + '</strong>. Cargá el avance a la fecha o el cierre.</span></div>';
             }
+        }
+
+        // Comparison vs forecast — "cómo venimos" a esta altura del mes
+        const cmpEl = document.getElementById('comCompare');
+        if (cmpEl) {
+            const forecastC = parseInt(c.forecast) || 0;
+            const forecastW = parseFloat(c.forecastWaste) || 0;
+            const realKg    = sumKg(mRecs(comMonth));
+            const realIdx   = total > 0 ? (realKg / total) * 1000 : null;
+            const fIdx      = comForecastIdx(comMonth);
+            let rows = '';
+            if (forecastC > 0) {
+                const pctC = total > 0 ? ((total / forecastC) * 100).toFixed(0) + '%' : null;
+                rows += '<div class="com-cmp-row"><span>Comensales</span><span>' +
+                    (total > 0 ? total.toLocaleString('es') : '—') + ' de ' + forecastC.toLocaleString('es') + ' forecast' +
+                    (pctC ? ' (' + pctC + ')' : '') + '</span></div>';
+            }
+            if (forecastW > 0) {
+                const pctW = ((realKg / forecastW) * 100).toFixed(0);
+                rows += '<div class="com-cmp-row"><span>Desperdicio</span><span>' +
+                    realKg.toFixed(1) + ' kg de ' + forecastW.toFixed(1) + ' kg forecast (' + pctW + '%)</span></div>';
+            }
+            if (fIdx !== null) {
+                rows += '<div class="com-cmp-row"><span>Índice</span><span>' +
+                    (realIdx !== null ? realIdx.toFixed(1) + ' g real' : 'sin dato real') + ' vs ' + fIdx.toFixed(1) + ' g forecast</span></div>';
+            }
+            cmpEl.innerHTML = rows ? '<div class="com-compare">' + rows + '</div>' : '';
         }
     }
 
-    async function saveComensales() {
-        const inp   = document.getElementById('comTotal');
-        const total = parseInt(inp ? inp.value : 0) || 0;
-        const data  = { total, _savedAt: new Date().toISOString() };
-        await dbSaveComensales(comMonth, data);
-        toast('✓ ' + total.toLocaleString('es') + ' comensales guardados — ' + monthLabel(comMonth));
+    async function saveComensalesForecast() {
+        const forecast      = parseInt(document.getElementById('comForecastTotal').value) || 0;
+        const forecastWaste = parseFloat(document.getElementById('comForecastWaste').value) || 0;
+        await dbSaveComensales(comMonth, { forecast, forecastWaste, _forecastSavedAt: new Date().toISOString() });
+        toast('✓ Forecast guardado — ' + monthLabel(comMonth));
         renderComensales();
+        refreshCurrentView();
     }
 
-    return { launch, goSplash, toggleMode, goTab, saveRecord, clearForm, deleteRecord, saveComensales, exportCSV,
+    async function saveComensalesActual() {
+        const actualDate  = document.getElementById('comActualDate').value || todayStr();
+        const actualTotal = parseInt(document.getElementById('comActualTotal').value) || 0;
+        await dbSaveComensales(comMonth, { actualDate, actualTotal, _actualSavedAt: new Date().toISOString() });
+        toast('✓ Avance a la fecha guardado — ' + monthLabel(comMonth));
+        renderComensales();
+        refreshCurrentView();
+    }
+
+    async function saveComensalesClosed() {
+        const closedTotal = parseInt(document.getElementById('comClosedTotal').value) || 0;
+        await dbSaveComensales(comMonth, { closedTotal, closedAt: new Date().toISOString() });
+        toast('✓ Mes cerrado — ' + monthLabel(comMonth) + ' · ' + closedTotal.toLocaleString('es') + ' comensales');
+        renderComensales();
+        refreshCurrentView();
+    }
+
+    return { launch, goSplash, toggleMode, goTab, saveRecord, clearForm, deleteRecord,
+             saveComensalesForecast, saveComensalesActual, saveComensalesClosed, exportCSV,
              onPhotosSelected, removePhoto, openPhotoModal, closePhotoModal, pmNav,
              openEditModal, closeEditModal, saveEdit };
 })();
